@@ -37,7 +37,6 @@ export async function POST(request: Request) {
     ) {
       return new NextResponse("Datos faltantes o inválidos", { status: 400 })
     }
-    
 
     // Validación y parseo de fecha (formato yyyy-mm-dd)
     const parsedFecha = new Date(`${fechaIngreso}T12:00:00`)

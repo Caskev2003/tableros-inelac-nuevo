@@ -40,7 +40,6 @@ export default function PrediccionArima() {
       try {
         const res = await fetch("/api/prediccion-arima", { cache: "no-store" });
         const data = await res.json();
-
         if (data?.valores && data?.meses) {
           const hoy = new Date();
           const mesesTraducidos = data.meses.map((_: string, i: number) => {
@@ -50,7 +49,6 @@ export default function PrediccionArima() {
               year: "numeric",
             }).format(fecha);
           });
-
           const comparaciones = data.valores.map((valor: number, i: number) => {
             const efectividad = Math.max(0, 100 - Math.abs(valor - data.actual) / data.actual * 100);
             return {

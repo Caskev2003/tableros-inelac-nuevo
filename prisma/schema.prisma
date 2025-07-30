@@ -1,16 +1,73 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model usuario {
+  id                    Int                     @id @default(autoincrement())
+  nombre                String?
+  correo                String                  @unique
+  imagen                String?
+  rol                   Rol
+  telefono              String?
+  password              String
+  emailVerified         DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  movimientosReportados historial_movimientos[] @relation("UsuarioReportadoHistorial")
+  reportesL3            refacciones_l3[]        @relation("UsuarioReportadoRefacciones")
+  quimicosReportados    quimicos[]              @relation("UsuarioReportadoQuimicos")
+}
+
+model refacciones_l3 {
+  codigo            Int           @id
+  descripcion       String        @db.VarChar(80)
+  noParte           String        @db.VarChar(50)
+  existenciaFisica  Int
+  existenciaSistema Int
+  diferencias       Int
+  proveedores       String        @db.VarChar(80)
+  cantidadEntrada   Int?
+  cantidadSalida    Int?
+  cantidad          Int?
+  fechaIngreso      DateTime
+  movimiento        Movimiento
+  unidadMedidaId    Unidad_medida
+  ubicacionId       Int
+  ubicacion         ubicacion     @relation("UbicacionRefacciones", fields: [ubicacionId], references: [id])
+  reportadoPorId    Int
+  usuarioReportado  usuario       @relation("UsuarioReportadoRefacciones", fields: [reportadoPorId], references: [id])
+
+  @@index([reportadoPorId], map: "refacciones_l3_reportadoPorId_fkey")
+  @@index([ubicacionId], map: "refacciones_l3_ubicacionId_fkey")
+}
+
+model historial_movimientos {
+  id                      Int        @id @default(autoincrement())
+  codigoRefaccion         Int
+  descripcion             String
+  noParte                 String
+  movimiento              Movimiento
+  cantidad                Int
+  existenciaFisicaDespues Int
+  reportadoPorId          Int
+  fechaMovimiento         DateTime   @default(now())
+  usuarioReportado        usuario    @relation("UsuarioReportadoHistorial", fields: [reportadoPorId], references: [id])
+
+  @@index([reportadoPorId], map: "historial_movimientos_reportadoPorId_fkey")
+}
+
+model ubicacion {
+  id          Int              @id @default(autoincrement())
+  rack        Int
+  posicion    String           @db.VarChar(20)
+  fila        String           @db.VarChar(20)
+  refacciones refacciones_l3[] @relation("UbicacionRefacciones")
+  quimicos    quimicos[]       @relation("UbicacionQuimicos")
 }
 
 enum Rol {
@@ -18,61 +75,6 @@ enum Rol {
   SUPERVISOR_REFACCIONES
   SUPERVISOR_QUIMICOS
   DESPACHADOR
-}
-
-model usuario {
-  id             Int                @id @default(autoincrement())
-  nombre         String?
-  correo         String             @unique
-  imagen         String?
-  rol            Rol
-  telefono       String?
-  password       String
-  emailVerified  DateTime? 
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-
-  reportesL3     refacciones_l3[]   @relation("UsuarioReportado")
-  movimientosReportados  historial_movimientos[]   @relation("UsuarioReportadoHistorial")
-}
-
-model refacciones_l3 {
-  codigo             Int           @id
-  descripcion        String        @db.VarChar(80)
-  noParte            String        @db.VarChar(50)
-  existenciaFisica   Int
-  existenciaSistema  Int
-  diferencias        Int
-  proveedores        String        @db.VarChar(80)
-  cantidadEntrada    Int?
-  cantidadSalida     Int?
-  cantidad           Int?
-  fechaIngreso       DateTime
-  movimiento         Movimiento
-
-  unidadMedidaId     Unidad_medida
-  
-
-  ubicacionId        Int
-  ubicacion          ubicacion     @relation(fields: [ubicacionId], references: [id])
-
-  reportadoPorId     Int
-  usuarioReportado   usuario       @relation("UsuarioReportado", fields: [reportadoPorId], references: [id])
-}
-
-model historial_movimientos {
-  id              Int           @id @default(autoincrement())
-  codigoRefaccion Int
-  descripcion     String
-  noParte         String
-  movimiento      Movimiento
-  cantidad        Int
-  existenciaFisicaDespues Int
-
-  reportadoPorId     Int
-  usuarioReportado   usuario       @relation("UsuarioReportadoHistorial", fields: [reportadoPorId], references: [id])
-
-  fechaMovimiento DateTime      @default(now())
 }
 
 enum Movimiento {
@@ -83,18 +85,43 @@ enum Movimiento {
   ELIMINADO
 }
 
-enum Unidad_medida{
+enum Unidad_medida {
   KG
   LTS
   PZ
   MTS
 }
 
-model ubicacion {
-  id          Int              @id @default(autoincrement())
-  rack        Int
-  posicion    String           @db.VarChar(20)
-  fila        String           @db.VarChar(20)
+model notificacion_refaccion {
+  id            Int       @id @default(autoincrement())
+  codigo        Int
+  descripcion   String
+  creadaEn      DateTime  @default(now())
+}
 
-  refacciones refacciones_l3[]
+model quimicos {
+  codigo            Int           @id
+  descripcion       String        @db.VarChar(80)
+  noLote            String        @db.VarChar(50)
+  existenciaFisica  Int
+  existenciaSistema Int
+  diferencias       Int
+  proveedores       String        @db.VarChar(80)
+  cantidadEntrada   Int?
+  cantidadSalida    Int?
+  cantidad          Int?
+  fechaIngreso      DateTime
+  fechaVencimiento  DateTime
+  diasDeVida        Int?
+  retenidos         Int
+  productoLiberado  String
+  movimiento        Movimiento
+  unidadMedidaId    Unidad_medida
+  ubicacionId       Int
+  ubicacion         ubicacion     @relation("UbicacionQuimicos", fields: [ubicacionId], references: [id])
+  reportadoPorId    Int
+  usuarioReportado  usuario       @relation("UsuarioReportadoQuimicos", fields: [reportadoPorId], references: [id])
+
+  @@index([reportadoPorId], map: "quimicos_reportadoPorId_fkey")
+  @@index([ubicacionId], map: "quimicos_ubicacionId_fkey")
 }

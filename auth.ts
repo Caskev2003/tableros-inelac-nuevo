@@ -64,7 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string
         session.user.rol = token.rol as string
         session.user.image = token.imagen as string
-        console.log('Session:', session) // Depura la sesión
+        
       }
       return session
     },

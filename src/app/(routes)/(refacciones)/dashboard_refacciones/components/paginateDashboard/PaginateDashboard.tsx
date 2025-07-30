@@ -133,8 +133,8 @@ export default function PaginateDashboard() {
               <strong>${punto.mes}</strong><br/>
               Código: ${punto.codigo}<br/>
               Descripción: ${punto.descripcion}<br/>
-              Existencia: ${punto.existencia}<br/>
-              Acumulado: ${punto.acumulado}
+              Existencia por mes: ${punto.existencia}<br/>
+              Existencia total: ${punto.acumulado}
             `;
           }).join('<br/>');
           return contenido;
