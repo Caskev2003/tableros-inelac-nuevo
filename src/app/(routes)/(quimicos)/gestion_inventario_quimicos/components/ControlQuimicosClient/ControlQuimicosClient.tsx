@@ -90,7 +90,6 @@ export default function ControlQuimicosClient() {
 
           <div className="text-white px-4 py-2 rounded-full text-sm sm:text-base font-semibold bg-[#426689] transition-all duration-200 hover:bg-gradient-to-b hover:from-green-700 hover:to-green-500">
             <MovimientoStock 
-              tipo="QUIMICO" 
               onSuccess={manejarRegistroExitoso} 
             />
           </div>

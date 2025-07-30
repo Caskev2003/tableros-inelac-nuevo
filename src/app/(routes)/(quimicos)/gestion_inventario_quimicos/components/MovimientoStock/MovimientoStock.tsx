@@ -23,65 +23,115 @@ interface Quimico {
   diferencias: number;
   movimiento: Movimiento;
   fechaVencimiento: string;
+  ubicacion?: {
+    rack: number;
+    posicion: string;
+  };
 }
 
 interface Props {
   onSuccess?: () => void;
-  tipo?: "QUIMICO" | "REFACCION"; // Nuevo prop para manejar ambos tipos
 }
 
-export default function MovimientoStock({ onSuccess, tipo = "QUIMICO" }: Props) {
+export default function MovimientoStock({ onSuccess }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [codigo, setCodigo] = useState("");
   const [noLote, setNoLote] = useState("");
   const [stock, setStock] = useState("");
   const [quimico, setQuimico] = useState<Quimico | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const buscarPorCodigo = async () => {
-    if (!codigo) return;
+    if (!codigo.trim()) {
+      toast({
+        title: "Error",
+        description: "Ingrese un código válido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
-      const res = await fetch(`/api/quimicos/buscar-movimiento?codigo=${codigo}`);
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/quimicos/buscar-entrada-salida?codigo=${codigo}`);
+      if (!res.ok) throw new Error("Químico no encontrado");
+      
       const data = await res.json();
-      setQuimico(data);
-    } catch {
+      if (!data) throw new Error();
+      
+      setQuimico({
+        ...data,
+        fechaVencimiento: data.fechaVencimiento || new Date().toISOString()
+      });
+    } catch (error) {
       toast({ 
         title: "No encontrado", 
         description: "Código no válido", 
         variant: "destructive" 
       });
       setQuimico(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   const buscarPorNoLote = async () => {
-    if (!noLote) return;
+    if (!noLote.trim()) {
+      toast({
+        title: "Error",
+        description: "Ingrese un número de lote válido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
-      const res = await fetch(`/api/quimicos/buscar-movimiento?noLote=${noLote}`);
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/quimicos/buscar-entrada-salida?noLote=${noLote}`);
+      if (!res.ok) throw new Error("Químico no encontrado");
+      
       const data = await res.json();
-      setQuimico(data);
-    } catch {
+      if (!data) throw new Error();
+      
+      setQuimico({
+        ...data,
+        fechaVencimiento: data.fechaVencimiento || new Date().toISOString()
+      });
+    } catch (error) {
       toast({ 
         title: "No encontrado", 
         description: "Número de lote no válido", 
         variant: "destructive" 
       });
       setQuimico(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   const actualizarStock = async (tipoMovimiento: "ENTRADA" | "SALIDA") => {
     if (!quimico) return;
-    const cantidad = parseInt(stock);
     
-    if (isNaN(cantidad) || cantidad <= 0) {
-      toast({ title: "Cantidad inválida", variant: "destructive" });
+    const cantidad = parseInt(stock);
+    if (isNaN(cantidad)) {
+      toast({ 
+        title: "Error", 
+        description: "Ingrese una cantidad válida", 
+        variant: "destructive" 
+      });
       return;
     }
 
-    // Validación adicional para químicos (no permitir salida si no hay suficiente)
+    if (cantidad <= 0) {
+      toast({ 
+        title: "Error", 
+        description: "La cantidad debe ser mayor a cero", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     if (tipoMovimiento === "SALIDA" && quimico.existenciaFisica < cantidad) {
       toast({
         title: "Error",
@@ -91,46 +141,53 @@ export default function MovimientoStock({ onSuccess, tipo = "QUIMICO" }: Props) 
       return;
     }
 
-    const nuevaExistencia = tipoMovimiento === "ENTRADA"
-      ? quimico.existenciaFisica + cantidad
-      : quimico.existenciaFisica - cantidad;
-
-    const nuevasDiferencias = Math.abs(nuevaExistencia - quimico.existenciaSistema);
-
+    setLoading(true);
     try {
       const res = await fetch(`/api/quimicos/movimiento/${quimico.codigo}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           tipo: tipoMovimiento,
           cantidad,
-          nuevaExistencia,
-          nuevasDiferencias,
+          nuevaExistencia: tipoMovimiento === "ENTRADA" 
+            ? quimico.existenciaFisica + cantidad 
+            : quimico.existenciaFisica - cantidad,
+          nuevasDiferencias: tipoMovimiento === "ENTRADA"
+            ? Math.abs((quimico.existenciaFisica + cantidad) - quimico.existenciaSistema)
+            : Math.abs((quimico.existenciaFisica - cantidad) - quimico.existenciaSistema),
         }),
       });
 
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Error al actualizar");
+      }
 
       toast({
         title: tipoMovimiento === "ENTRADA" ? "✅ Entrada registrada" : "✅ Salida registrada",
-        description: "Stock actualizado correctamente",
+        description: `Stock actualizado correctamente (${cantidad} ${tipoMovimiento.toLowerCase()})`,
       });
 
-      router.refresh();
-      onSuccess?.();
-
-      // Limpiar y cerrar
+      // Resetear el formulario
       setQuimico(null);
       setCodigo("");
       setNoLote("");
       setStock("");
       setOpen(false);
-    } catch {
+      
+      // Actualizar la vista
+      router.refresh();
+      onSuccess?.();
+    } catch (error: any) {
       toast({ 
         title: "❌ Error", 
-        description: "No se pudo actualizar el stock", 
+        description: error.message || "No se pudo actualizar el stock", 
         variant: "destructive" 
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -146,17 +203,19 @@ export default function MovimientoStock({ onSuccess, tipo = "QUIMICO" }: Props) 
           <DialogTitle className="text-white">Entrada/Salida de Químicos</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex gap-2">
             <Input 
               placeholder="Buscar por código" 
               value={codigo} 
               onChange={(e) => setCodigo(e.target.value)}
               className="bg-white text-black"
+              disabled={loading}
             />
             <Button 
               onClick={buscarPorCodigo} 
               className="bg-[#426689] hover:bg-[#567798] text-white"
+              disabled={loading || !codigo.trim()}
             >
               Buscar
             </Button>
@@ -168,45 +227,62 @@ export default function MovimientoStock({ onSuccess, tipo = "QUIMICO" }: Props) 
               value={noLote} 
               onChange={(e) => setNoLote(e.target.value)}
               className="bg-white text-black"
+              disabled={loading}
             />
             <Button 
               onClick={buscarPorNoLote} 
               className="bg-[#426689] hover:bg-[#567798] text-white"
+              disabled={loading || !noLote.trim()}
             >
               Buscar
             </Button>
           </div>
 
-          {quimico && (
-            <div className="bg-[#424242] p-4 rounded-md space-y-2">
-              <p><strong>Código:</strong> {quimico.codigo}</p>
-              <p><strong>Descripción:</strong> {quimico.descripcion}</p>
-              <p><strong>No. Lote:</strong> {quimico.noLote}</p>
-              <p><strong>Existencia física:</strong> {quimico.existenciaFisica}</p>
-              <p><strong>Existencia sistema:</strong> {quimico.existenciaSistema}</p>
-              <p><strong>Diferencias:</strong> {quimico.diferencias}</p>
-              <p><strong>Vencimiento:</strong> {new Date(quimico.fechaVencimiento).toLocaleDateString()}</p>
+          {loading && (
+            <div className="text-center py-4">
+              <p>Cargando...</p>
+            </div>
+          )}
 
-              <div className="flex items-center gap-2 mt-4">
-                <Input
-                  type="number"
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
-                  placeholder="Cantidad"
-                  className="w-40 bg-white text-black"
-                />
-                <Button 
-                  onClick={() => actualizarStock("ENTRADA")} 
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  Entrada
-                </Button>
-                <Button 
-                  onClick={() => actualizarStock("SALIDA")} 
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  Salida
-                </Button>
+          {quimico && !loading && (
+            <div className="bg-[#424242] p-4 rounded-md space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <p><strong>Código:</strong> {quimico.codigo}</p>
+                <p><strong>No. Lote:</strong> {quimico.noLote}</p>
+                <p><strong>Descripción:</strong> {quimico.descripcion}</p>
+                <p><strong>Ubicación:</strong> {quimico.ubicacion ? `Rack ${quimico.ubicacion.rack}, Pos ${quimico.ubicacion.posicion}` : 'N/A'}</p>
+                <p><strong>Existencia física:</strong> {quimico.existenciaFisica}</p>
+                <p><strong>Existencia sistema:</strong> {quimico.existenciaSistema}</p>
+                <p><strong>Diferencias:</strong> {quimico.diferencias}</p>
+                <p><strong>Vencimiento:</strong> {new Date(quimico.fechaVencimiento).toLocaleDateString()}</p>
+              </div>
+
+              <div className="pt-4">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Cantidad"
+                    className="w-40 bg-white text-black"
+                    disabled={loading}
+                  />
+                  <Button 
+                    onClick={() => actualizarStock("ENTRADA")} 
+                    className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                    disabled={loading || !stock || parseInt(stock) <= 0}
+                  >
+                    {loading ? "Procesando..." : "Entrada"}
+                  </Button>
+                  <Button 
+                    onClick={() => actualizarStock("SALIDA")} 
+                    className="bg-red-600 hover:bg-red-700 text-white flex-1"
+                    disabled={loading || !stock || parseInt(stock) <= 0 || parseInt(stock) > quimico.existenciaFisica}
+                  >
+                    {loading ? "Procesando..." : "Salida"}
+                  </Button>
+                </div>
               </div>
             </div>
           )}

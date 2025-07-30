@@ -64,6 +64,7 @@ export function TablaQuimicos({
     }
   }
 
+
   const eliminarQuimico = async (codigo: number, descripcion: string) => {
     try {
       await axios.delete(`/api/quimicos?codigo=${codigo}`)
@@ -82,18 +83,23 @@ export function TablaQuimicos({
   }
 
   const cargarUbicaciones = async () => {
-    try {
-      const { data } = await axios.get("/api/ubicaciones")
-      setUbicaciones(data)
-    } catch (error) {
-      console.error("Error al cargar ubicaciones:", error)
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar las ubicaciones",
-        variant: "destructive",
-      })
+  try {
+    const { data } = await axios.get("/api/ubicaciones");
+    if (data && Array.isArray(data)) {
+      setUbicaciones(data);
+    } else {
+      throw new Error("Formato de datos inesperado");
     }
+  } catch (error) {
+    console.error("Error al cargar ubicaciones:", error);
+    toast({
+      title: "Error",
+      description: "No se pudieron cargar las ubicaciones",
+      variant: "destructive",
+    });
+    setUbicaciones([]); // Asegura que el estado no sea undefined
   }
+};
 
   useEffect(() => {
     fetchQuimicos()
