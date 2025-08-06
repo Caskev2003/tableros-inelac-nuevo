@@ -424,7 +424,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   {...field}
                   readOnly
                   value={session?.user?.id ? `${session.user.id} - ${session.user.name}` : "No autenticado"}
-                  className="text-black bg-gray-200 w-full rounded-md px-3 py-2"
+                  className="text-black bg-zinc-500"
                 />
               </FormControl>
               <FormMessage />

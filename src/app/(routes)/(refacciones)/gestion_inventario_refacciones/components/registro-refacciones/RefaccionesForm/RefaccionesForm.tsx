@@ -26,16 +26,16 @@ export function RefaccionesForm({ onSuccess }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(refaccionSchema),
     defaultValues: {
-      codigo: 0,
+      codigo: undefined, // Cambiado de 0 a undefined
       descripcion: "",
       noParte: "",
       proveedores: "",
       fechaIngreso: "",
       unidadMedidaId: "PZ",
-      ubicacionId: 0,
-      cantidad: 1,
-      existenciaSistema: 0,
-      reportadoPorId: 0, // Este campo debe seguir siendo solo el ID numérico
+      ubicacionId: undefined, // Cambiado de 0 a undefined
+      cantidad: undefined, // Cambiado de 0 a undefined
+      existenciaSistema: undefined, // Cambiado de 0 a undefined
+      reportadoPorId: 0, // Este campo se llenará automáticamente
     }
   })
 
@@ -58,12 +58,12 @@ export function RefaccionesForm({ onSuccess }: Props) {
   useEffect(() => {
     const userId = Number(session?.user?.id)
     const userName = session?.user?.name || "Usuario no disponible"
-    const userIdWithName = `${userId} - ${userName}` //aqui se concatena el id con el nombre
+    const userIdWithName = `${userId} - ${userName}`
 
     console.log("👤 ID del usuario logueado:", userId)
 
-    if (!isNaN(userId) && userId > 0) {
-      form.setValue("reportadoPorId", userId) // Aquí se pasa el ID del usuario
+    if (!isNaN(userId)) {
+      form.setValue("reportadoPorId", userId)
     }
   }, [session?.user?.id, session?.user?.name, form])
 
@@ -106,7 +106,21 @@ export function RefaccionesForm({ onSuccess }: Props) {
                 <FormItem>
                   <FormLabel className="text-white">{label}</FormLabel>
                   <FormControl>
-                    <Input {...field} className="text-black bg-white w-full rounded-md px-3 py-2" />
+                    <Input 
+                      {...field} 
+                      type={name === "codigo" || name === "cantidad" ? "number" : "text"}
+                      value={field.value ?? ''} // Mostrar cadena vacía si es undefined
+                      onChange={(e) => {
+                        // Para campos numéricos, convertir a número o undefined
+                        if (name === "codigo" || name === "cantidad") {
+                          const value = e.target.value;
+                          field.onChange(value === '' ? undefined : Number(value));
+                        } else {
+                          field.onChange(e.target.value);
+                        }
+                      }}
+                      className="text-black bg-white w-full rounded-md px-3 py-2" 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -135,7 +149,16 @@ export function RefaccionesForm({ onSuccess }: Props) {
             <FormItem>
               <FormLabel className="text-white">Existencia en sistema</FormLabel>
               <FormControl>
-                <Input type="number" {...field} className="text-black bg-white w-full rounded-md px-3 py-2" />
+                <Input 
+                  type="number" 
+                  {...field} 
+                  value={field.value ?? ''} // Mostrar cadena vacía si es undefined
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    field.onChange(value === '' ? undefined : Number(value));
+                  }}
+                  className="text-black bg-white w-full rounded-md px-3 py-2" 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -168,7 +191,15 @@ export function RefaccionesForm({ onSuccess }: Props) {
             <FormItem>
               <FormLabel className="text-white">Ubicación</FormLabel>
               <FormControl>
-                <select {...field} className="text-black bg-white w-full rounded-md p-2 border">
+                <select 
+                  {...field} 
+                  value={field.value ?? ''} // Mostrar cadena vacía si es undefined
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    field.onChange(value === '' ? undefined : Number(value));
+                  }}
+                  className="text-black bg-white w-full rounded-md p-2 border"
+                >
                   <option value="">Selecciona una ubicación</option>
                   {ubicaciones.map((ubi: any) => (
                     <option key={ubi.id} value={ubi.id}>
@@ -193,7 +224,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
                 <Input
                   {...field}
                   readOnly
-                  value={session?.user?.id ? `${session?.user?.id} - ${session?.user?.name}` : ""} // Mostrar ID y nombre concatenados
+                  value={session?.user?.id ? `${session?.user?.id} - ${session?.user?.name}` : ""}
                   className="text-black bg-zinc-500"
                 />
               </FormControl>
@@ -204,8 +235,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
 
         {/* Botón registrar */}
         <div className="lg:col-span-3 flex justify-center mt-4">
-          <Button type="submit"  className="bg-[#1e3a5f] text-white hover:bg-green-600 h-10 px-10 rounded-full w-full sm:w-auto"
-          >
+          <Button type="submit" className="bg-[#1e3a5f] text-white hover:bg-green-600 h-10 px-10 rounded-full w-full sm:w-auto">
             Registrar refacción
           </Button>
         </div>

@@ -100,7 +100,8 @@ model notificacion_refaccion {
 }
 
 model quimicos {
-  codigo            Int           @id
+  id                Int           @id @default(autoincrement())
+  codigo            Int
   descripcion       String        @db.VarChar(80)
   noLote            String        @db.VarChar(50)
   existenciaFisica  Int
@@ -122,6 +123,7 @@ model quimicos {
   reportadoPorId    Int
   usuarioReportado  usuario       @relation("UsuarioReportadoQuimicos", fields: [reportadoPorId], references: [id])
 
+  @@unique([codigo, noLote], name: "quimicos_codigo_noLote_unique")
   @@index([reportadoPorId], map: "quimicos_reportadoPorId_fkey")
   @@index([ubicacionId], map: "quimicos_ubicacionId_fkey")
 }
