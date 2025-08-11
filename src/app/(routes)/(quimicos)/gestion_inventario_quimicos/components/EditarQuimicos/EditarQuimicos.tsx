@@ -18,13 +18,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
-import { Unidad_medida } from "@prisma/client"
-import { Movimiento } from "@prisma/client"
+import { Unidad_medida, Movimiento } from "@prisma/client"
 
 type FormValues = z.infer<typeof quimicoSchema>
 
 interface Props {
   quimico: {
+    id: number
     codigo: number
     descripcion: string
     noLote: string
@@ -56,6 +56,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(quimicoSchema),
     defaultValues: {
+      id: quimico.id,
       codigo: quimico.codigo,
       descripcion: quimico.descripcion,
       noLote: quimico.noLote,
@@ -67,51 +68,75 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
       existenciaFisica: quimico.existenciaFisica,
       existenciaSistema: quimico.existenciaSistema,
       retenidos: quimico.retenidos,
-      productoLiberado: quimico.productoLiberado  === "SI" ? "SI" : "NO",
+      productoLiberado: quimico.productoLiberado === "SI" ? "SI" : "NO",
       diasDeVida: quimico.diasDeVida,
       reportadoPorId: quimico.reportadoPorId,
       movimiento: "EDITADO" as Movimiento
     }
   })
 
-  // Actualizar reportadoPorId si cambia la sesión
+  useEffect(() => {
+    if (quimico) {
+      form.reset({
+        id: quimico.id,
+        codigo: quimico.codigo,
+        descripcion: quimico.descripcion,
+        noLote: quimico.noLote,
+        proveedores: quimico.proveedores,
+        fechaIngreso: quimico.fechaIngreso,
+        fechaVencimiento: quimico.fechaVencimiento,
+        unidadMedidaId: quimico.unidadMedidaId,
+        ubicacionId: quimico.ubicacionId,
+        existenciaFisica: quimico.existenciaFisica,
+        existenciaSistema: quimico.existenciaSistema,
+        retenidos: quimico.retenidos,
+        productoLiberado: quimico.productoLiberado === "SI" ? "SI" : "NO",
+        diasDeVida: quimico.diasDeVida ?? undefined,
+        reportadoPorId: quimico.reportadoPorId,
+        movimiento: "EDITADO" as Movimiento
+      })
+    }
+  }, [quimico, form])
+
   useEffect(() => {
     if (session?.user?.id) {
       form.setValue("reportadoPorId", Number(session.user.id))
     }
   }, [session?.user?.id, form])
 
-  // Manejar cambios en campos numéricos
-  const handleNumberChange = (field: any, value: string) => {
-    if (value === "" || isNaN(Number(value))) {
-      field.onChange(0)
-    } else {
-      field.onChange(Number(value))
-    }
-  }
-
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true)
     try {
-      // Validar ubicación
       if (!values.ubicacionId || values.ubicacionId === 0) {
         throw new Error("Debes seleccionar una ubicación válida")
       }
 
-      // Preparar payload para actualización
+      const fechaIngreso = new Date(values.fechaIngreso)
+      const fechaVencimiento = new Date(values.fechaVencimiento)
+
+      if (fechaVencimiento <= fechaIngreso) {
+        throw new Error("La fecha de vencimiento debe ser posterior a la de ingreso")
+      }
+
       const payload = {
-        ...values,
+        id: values.id,
         codigo: Number(values.codigo),
+        descripcion: values.descripcion,
+        noLote: values.noLote,
+        proveedores: values.proveedores,
+        fechaIngreso: fechaIngreso.toISOString(),
+        fechaVencimiento: fechaVencimiento.toISOString(),
+        unidadMedidaId: values.unidadMedidaId,
         ubicacionId: Number(values.ubicacionId),
-        reportadoPorId: Number(values.reportadoPorId),
         existenciaFisica: Number(values.existenciaFisica),
         existenciaSistema: Number(values.existenciaSistema),
         retenidos: Number(values.retenidos) || 0,
-        fechaIngreso: new Date(values.fechaIngreso).toISOString(),
-        fechaVencimiento: new Date(values.fechaVencimiento).toISOString()
+        productoLiberado: values.productoLiberado,
+        diasDeVida: values.diasDeVida ? Number(values.diasDeVida) : undefined,
+        reportadoPorId: Number(values.reportadoPorId),
+        movimiento: "EDITADO" as Movimiento
       }
 
-      // Enviar actualización
       const { data } = await axios.put("/api/quimicos/update", payload)
 
       if (!data.success) {
@@ -141,7 +166,18 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Campo Código (solo lectura) */}
+        <FormField
+          control={form.control}
+          name="id"
+          render={({ field }) => (
+            <FormItem className="hidden">
+              <FormControl>
+                <Input type="hidden" {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="codigo"
@@ -160,7 +196,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Descripción */}
         <FormField
           control={form.control}
           name="descripcion"
@@ -178,7 +213,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Número de Lote */}
         <FormField
           control={form.control}
           name="noLote"
@@ -196,7 +230,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Proveedor */}
         <FormField
           control={form.control}
           name="proveedores"
@@ -214,7 +247,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Existencia Física */}
         <FormField
           control={form.control}
           name="existenciaFisica"
@@ -224,8 +256,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
               <FormControl>
                 <Input
                   type="number"
-                  value={field.value}
-                  onChange={(e) => handleNumberChange(field, e.target.value)}
+                  {...field}
                   className="text-black bg-white"
                 />
               </FormControl>
@@ -234,7 +265,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Existencia en Sistema */}
         <FormField
           control={form.control}
           name="existenciaSistema"
@@ -244,8 +274,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
               <FormControl>
                 <Input
                   type="number"
-                  value={field.value}
-                  onChange={(e) => handleNumberChange(field, e.target.value)}
+                  {...field}
                   className="text-black bg-white"
                 />
               </FormControl>
@@ -254,7 +283,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Retenidos */}
         <FormField
           control={form.control}
           name="retenidos"
@@ -264,8 +292,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
               <FormControl>
                 <Input
                   type="number"
-                  value={field.value}
-                  onChange={(e) => handleNumberChange(field, e.target.value)}
+                  {...field}
                   className="text-black bg-white"
                 />
               </FormControl>
@@ -274,7 +301,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Fecha de Ingreso */}
         <FormField
           control={form.control}
           name="fechaIngreso"
@@ -293,7 +319,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Fecha de Vencimiento */}
         <FormField
           control={form.control}
           name="fechaVencimiento"
@@ -312,7 +337,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Días de Vida */}
         <FormField
           control={form.control}
           name="diasDeVida"
@@ -322,8 +346,9 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
               <FormControl>
                 <Input
                   type="number"
-                  value={field.value || ""}
-                  onChange={(e) => handleNumberChange(field, e.target.value)}
+                  {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
                   className="text-black bg-white"
                 />
               </FormControl>
@@ -332,7 +357,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Unidad de Medida */}
         <FormField
           control={form.control}
           name="unidadMedidaId"
@@ -342,6 +366,8 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
               <FormControl>
                 <select
                   {...field}
+                  value={String(field.value)}
+                  onChange={(e) => field.onChange(e.target.value as Unidad_medida)}
                   className="text-black bg-white w-full p-2 rounded border"
                 >
                   {Object.values(Unidad_medida).map((unidad) => (
@@ -356,7 +382,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Ubicación */}
         <FormField
           control={form.control}
           name="ubicacionId"
@@ -365,7 +390,8 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
               <FormLabel className="text-white">Ubicación</FormLabel>
               <FormControl>
                 <select
-                  value={field.value}
+                  {...field}
+                  value={String(field.value)}
                   onChange={(e) => field.onChange(Number(e.target.value))}
                   className="text-black bg-white w-full p-2 rounded border"
                 >
@@ -382,7 +408,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo Producto Liberado */}
         <FormField
           control={form.control}
           name="productoLiberado"
@@ -403,7 +428,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Campo ID Usuario (solo lectura) */}
         <FormField
           control={form.control}
           name="reportadoPorId"
@@ -423,7 +447,18 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
-        {/* Botón de Submit */}
+        <FormField
+          control={form.control}
+          name="movimiento"
+          render={({ field }) => (
+            <FormItem className="hidden">
+              <FormControl>
+                <Input type="hidden" {...field} />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
         <div className="lg:col-span-3 flex justify-center mt-4">
           <Button
             type="submit"

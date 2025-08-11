@@ -2,6 +2,12 @@ import { z } from "zod"
 import { Movimiento, Unidad_medida } from "@prisma/client"
 
 export const quimicoSchema = z.object({
+  // Campo ID agregado como número requerido
+  id: z.coerce.number()
+    .int("El ID debe ser un número entero")
+    .positive("El ID debe ser positivo")
+    .min(1, "ID inválido"),
+    
   codigo: z.coerce.number()
     .int("El código debe ser un número entero")
     .positive("El código debe ser positivo"),

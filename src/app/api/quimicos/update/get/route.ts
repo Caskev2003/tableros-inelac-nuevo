@@ -1,93 +1,114 @@
-import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const codigo = Number(searchParams.get("codigo"))
+  const { searchParams } = new URL(request.url);
+  const codigo = searchParams.get("codigo");
+  const noLote = searchParams.get("noLote");
 
-  // Validación básica
-  if (isNaN(codigo)) {
+  // Validación de parámetros
+  if (!codigo || isNaN(Number(codigo))) {
     return NextResponse.json(
       { 
         success: false,
-        error: "El código debe ser un número válido" 
+        error: "Código inválido o no proporcionado",
+        suggestion: "Proporcione un código numérico válido"
       },
       { status: 400 }
-    )
+    );
+  }
+
+  if (!noLote) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: "Número de lote no proporcionado",
+        suggestion: "El número de lote es requerido"
+      },
+      { status: 400 }
+    );
   }
 
   try {
-    // Obtener el químico con relaciones
+    // Buscar el químico usando el índice único compuesto
     const quimico = await db.quimicos.findUnique({
-      where: { codigo },
+      where: { 
+        quimicos_codigo_noLote_unique: {
+          codigo: Number(codigo),
+          noLote: noLote
+        }
+      },
       include: {
-        ubicacion: true,
+        ubicacion: {
+          select: {
+            id: true,
+            rack: true,
+            posicion: true,
+            fila: true
+          }
+        },
         usuarioReportado: {
           select: {
             id: true,
-            nombre: true
+            nombre: true,
+            rol: true
           }
         }
       }
-    })
+    });
 
     if (!quimico) {
       return NextResponse.json(
         { 
           success: false,
-          error: `Químico con código ${codigo} no encontrado` 
+          error: `Químico no encontrado (Código: ${codigo}, Lote: ${noLote})`,
+          suggestion: "Verifique que el código y lote sean correctos"
         },
         { status: 404 }
-      )
+      );
     }
 
-    // Calcular días de vida si no existe
-    let diasDeVida = quimico.diasDeVida
+    // Calcular días de vida si no está definido
+    let diasDeVida = quimico.diasDeVida;
     if (!diasDeVida && quimico.fechaIngreso && quimico.fechaVencimiento) {
-      const diffTime = Math.abs(
-        quimico.fechaVencimiento.getTime() - quimico.fechaIngreso.getTime()
-      )
-      diasDeVida = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      const diff = quimico.fechaVencimiento.getTime() - quimico.fechaIngreso.getTime();
+      diasDeVida = Math.ceil(diff / (1000 * 60 * 60 * 24));
     }
 
-    // Estructura de respuesta
-    const responseData = {
-      ...quimico,
-      diasDeVida,
-      fechaIngreso: quimico.fechaIngreso.toISOString(),
-      fechaVencimiento: quimico.fechaVencimiento.toISOString(),
-      // Aplanar relación ubicación
-      ubicacionId: quimico.ubicacion?.id || null,
-      ubicacion: quimico.ubicacion 
-        ? {
-            id: quimico.ubicacion.id,
-            rack: quimico.ubicacion.rack,
-            posicion: quimico.ubicacion.posicion,
-            fila: quimico.ubicacion.fila
-          }
-        : null,
-      // Info básica del usuario
-      reportadoPor: quimico.usuarioReportado
-        ? {
-            id: quimico.usuarioReportado.id,
-            nombre: quimico.usuarioReportado.nombre
-          }
-        : null
-    }
-
+    // Formatear respuesta
     return NextResponse.json({
       success: true,
-      data: responseData
-    })
+      data: {
+        id: quimico.id,
+        codigo: quimico.codigo,
+        noLote: quimico.noLote,
+        descripcion: quimico.descripcion,
+        existenciaFisica: quimico.existenciaFisica,
+        existenciaSistema: quimico.existenciaSistema,
+        diferencias: quimico.diferencias,
+        proveedores: quimico.proveedores,
+        fechaIngreso: quimico.fechaIngreso?.toISOString(),
+        fechaVencimiento: quimico.fechaVencimiento?.toISOString(),
+        diasDeVida: diasDeVida,
+        retenidos: quimico.retenidos,
+        productoLiberado: quimico.productoLiberado,
+        unidadMedidaId: quimico.unidadMedidaId,
+        ubicacionId: quimico.ubicacionId,
+        reportadoPorId: quimico.reportadoPorId,
+        ubicacion: quimico.ubicacion,
+        reportadoPor: quimico.usuarioReportado
+      }
+    });
 
-  } catch (error) {
-    console.error("Error en GET /api/quimicos/update/get:", error)
+  } catch (error: unknown) {
+    console.error("Error al obtener químico:", error);
     return NextResponse.json(
       { 
         success: false,
-        error: "Error interno del servidor al obtener el químico" 
+        error: "Error interno al buscar el químico",
+        details: error instanceof Error ? error.message : "Error desconocido"
       },
       { status: 500 }
-    )
+    );
   }
 }
