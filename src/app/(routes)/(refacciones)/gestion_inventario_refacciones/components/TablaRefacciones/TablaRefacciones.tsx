@@ -92,6 +92,22 @@ export function TablaRefacciones({
     (busquedaCodigo.trim() !== "" && datosFiltradosCodigo?.length === 0) ||
     (busquedaNoParte.trim() !== "" && datosFiltradosNoParte?.length === 0)
 
+  // Componente reutilizable para el semáforo
+  const SemaforoExistencia = ({ valor }: { valor: number }) => {
+    return (
+      <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+        valor <= 0 
+          ? 'bg-red-500 text-white border border-red-700 shadow-sm' 
+          : valor < 10 
+            ? 'bg-yellow-400 text-gray-900 border border-yellow-600 shadow-sm' 
+            : 'bg-green-500 text-white border border-green-700 shadow-sm'
+      }`}>
+        <span className="font-bold mr-1">{valor}</span>
+        {valor <= 0 ? 'Sin stock' : valor < 10 ? 'Stock Bajo' : 'Disponible'}
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-x-auto mt-6">
       <div className="max-h-[calc(100vh-300px)] overflow-y-auto rounded-lg shadow">
@@ -133,10 +149,25 @@ export function TablaRefacciones({
               >
                 <td className="p-2">{item.codigo}</td>
                 <td className="p-2">{item.descripcion}</td>
-                <td className="p-2">{item.noParte}</td>
-                <td className="p-2">{item.existenciaFisica}</td>
-                <td className="p-2">{item.existenciaSistema}</td>
-                <td className="p-2">{item.diferencias}</td>
+                <td className="p-2 min-w-[150px] max-w-[200px] overflow-hidden text-ellipsis hover:whitespace-normal">{item.noParte}</td>
+                <td className="p-2">
+                  <SemaforoExistencia valor={Number(item.existenciaFisica)} />
+                </td>
+                <td className="p-2">
+                  <SemaforoExistencia valor={Number(item.existenciaSistema)} />
+                </td>
+                <td className="p-2">
+                  <span className={`
+                    inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                    ${item.diferencias > 0 
+                      ? 'bg-purple-100 text-purple-800 border border-purple-300' 
+                      : 'bg-gray-100 text-gray-800 border border-gray-300'
+                    }`}
+                  >
+                    {item.diferencias}
+                  </span>
+                </td>
+                  
                 <td className="p-2">{item.unidadMedidaId}</td>
                 <td className="p-2">{item.cantidadEntrada}</td>
                 <td className="p-2">{item.cantidadSalida}</td>
@@ -147,7 +178,6 @@ export function TablaRefacciones({
                 <td className="p-2">{item.usuarioReportado?.nombre || `ID ${item.reportadoPorId}`}</td>
                 <td className="p-2">{new Date(item.fechaIngreso).toLocaleDateString()}</td>
                 <td className="p-2 text-center flex justify-center gap-2">
-                  {/* Botón eliminar */}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
@@ -181,7 +211,6 @@ export function TablaRefacciones({
                     </AlertDialogContent>
                   </AlertDialog>
 
-                  {/* Botón editar con modal separado */}
                   <ModalEditarRefaccion
                     codigo={item.codigo}
                     ubicaciones={ubicaciones}

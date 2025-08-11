@@ -39,7 +39,14 @@ export function Quimicos() {
           >
             📦 Gestión de inventario
           </button>
-
+             {/* Botón 1: Gestion de inventario */}
+           <button
+            className="bg-[#0D0A62] text-white text-xs md:text-sm px-3 py-2 rounded-full shadow-lg 
+            transition-all duration-300 cursor-pointer hover:bg-blue-500 border-white border-2"
+            onClick={() => handleNavigation("/historial_movimientos")}
+          >
+           📝Historial de movimientos
+          </button>
           {/* Botón 3: Dashboard */}
           <button
             className="bg-[#0D0A62] text-white text-xs md:text-sm px-3 py-2 rounded-full shadow-lg 

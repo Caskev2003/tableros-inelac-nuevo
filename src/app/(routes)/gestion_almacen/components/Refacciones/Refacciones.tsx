@@ -67,7 +67,7 @@ export function Refacciones() {
             transition-all duration-300 cursor-pointer hover:bg-blue-500 border-white border-2"
             onClick={() => handleNavigation("/historial_movimientos")}
           >
-            Historial de movimientos
+            📝Historial de movimientos
           </button>
 
           {/* Botón 3: Dashboard */}
@@ -77,15 +77,6 @@ export function Refacciones() {
             onClick={() => handleNavigation("/dashboard_refacciones")}
           >
             📊 Dashboard
-          </button>
-
-          {/* Botón 3: Predicción */}
-          <button
-            className="bg-[#0D0A62] text-white text-xs md:text-sm px-3 py-2 rounded-full shadow-lg
-            transition-all duration-300 cursor-pointer hover:bg-blue-500 border-white border-2"
-            onClick={() => handleNavigation("/prediccion")}
-          >
-            🔮 Predicción
           </button>
         </div>
       )}

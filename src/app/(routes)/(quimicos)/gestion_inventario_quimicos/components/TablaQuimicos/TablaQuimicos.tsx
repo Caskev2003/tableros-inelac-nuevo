@@ -1,11 +1,11 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { toast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
-import { Quimico } from "./TablaQuimicos.types";
-import { ModalEditarQuimico } from "../ModalEditarQuimico";
+import { useEffect, useState } from "react"
+import axios from "axios"
+import { toast } from "@/hooks/use-toast"
+import { Trash2 } from "lucide-react"
+import { Quimico } from "./TablaQuimicos.types"
+import { ModalEditarQuimico } from "../ModalEditarQuimico"
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -16,33 +16,40 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 
-interface Props {
-  refrescar?: number;
-  datosFiltradosCodigo?: Quimico[] | null;
-  datosFiltradosNoLote?: Quimico[] | null;
-  busquedaCodigo: string;
-  busquedaNoLote: string;
+// Componente para el semáforo de existencias
+const SemaforoExistencia = ({ valor }: { valor: number }) => {
+  return (
+    <div className={`
+      inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+      ${valor <= 0 
+        ? 'bg-red-500 text-white border border-red-700 shadow-sm' 
+        : valor < 5 
+          ? 'bg-yellow-400 text-gray-900 border border-yellow-600 shadow-sm' 
+          : 'bg-green-500 text-white border border-green-700 shadow-sm'
+      }`}
+    >
+      <span className="font-bold text-sm mr-1.5">{valor}</span>
+      {valor <= 0 ? 'Agotado' : valor < 5 ? 'Bajo' : 'Disponible'}
+    </div>
+  )
 }
 
-// Componente para mostrar el estado de caducidad
+// Componente para el indicador de caducidad
 const IndicadorCaducidad = ({ fechaVencimiento }: { fechaVencimiento: Date | string }) => {
   const calcularDias = () => {
-    const fechaVenc = new Date(fechaVencimiento);
-    const hoy = new Date();
-    
-    // Normalizar a medianoche para evitar errores con horas/minutos
-    fechaVenc.setHours(0, 0, 0, 0);
-    hoy.setHours(0, 0, 0, 0);
-    
-    const diffMs = fechaVenc.getTime() - hoy.getTime();
-    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  };
+    const fechaVenc = new Date(fechaVencimiento)
+    const hoy = new Date()
+    fechaVenc.setHours(0, 0, 0, 0)
+    hoy.setHours(0, 0, 0, 0)
+    const diffMs = fechaVenc.getTime() - hoy.getTime()
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  }
 
-  const dias = calcularDias();
-  const esCaducado = dias <= 0;
-  const porVencer = dias > 0 && dias <= 60;
+  const dias = calcularDias()
+  const esCaducado = dias <= 0
+  const porVencer = dias > 0 && dias <= 60
 
   return (
     <span className={`
@@ -55,8 +62,16 @@ const IndicadorCaducidad = ({ fechaVencimiento }: { fechaVencimiento: Date | str
       {porVencer ? `${dias} días por vencer` : ''}
       {!esCaducado && !porVencer ? `${dias} días vigente` : ''}
     </span>
-  );
-};
+  )
+}
+
+interface Props {
+  refrescar?: number
+  datosFiltradosCodigo?: Quimico[] | null
+  datosFiltradosNoLote?: Quimico[] | null
+  busquedaCodigo: string
+  busquedaNoLote: string
+}
 
 export function TablaQuimicos({
   refrescar = 0,
@@ -65,94 +80,89 @@ export function TablaQuimicos({
   busquedaCodigo,
   busquedaNoLote,
 }: Props) {
-  const [quimicos, setQuimicos] = useState<Quimico[]>([]);
-  const [quimicoSeleccionado, setQuimicoSeleccionado] = useState<Pick<Quimico, "codigo" | "descripcion"> | null>(null);
-  const [ubicaciones, setUbicaciones] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quimicos, setQuimicos] = useState<Quimico[]>([])
+  const [quimicoSeleccionado, setQuimicoSeleccionado] = useState<Pick<Quimico, "codigo" | "descripcion"> | null>(null)
+  const [ubicaciones, setUbicaciones] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   const fetchQuimicos = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const { data } = await axios.get<Quimico[]>("/api/quimicos");
+      const { data } = await axios.get<Quimico[]>("/api/quimicos")
       setQuimicos(data.map(q => ({
         ...q,
         fechaIngreso: typeof q.fechaIngreso === 'string' ? q.fechaIngreso : q.fechaIngreso.toISOString(),
         fechaVencimiento: typeof q.fechaVencimiento === 'string' ? q.fechaVencimiento : q.fechaVencimiento.toISOString(),
         cantidadEntrada: q.cantidadEntrada || 0,
         cantidadSalida: q.cantidadSalida || 0,
-      })));
+      })))
     } catch (error) {
       toast({
         title: "Error al cargar químicos",
         description: "No se pudieron obtener los datos.",
         variant: "destructive",
-      });
+      })
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const eliminarQuimico = async (codigo: number, noLote: string, descripcion: string) => {
     try {
-      await axios.delete(`/api/quimicos?codigo=${codigo}&noLote=${encodeURIComponent(noLote)}`);
+      await axios.delete(`/api/quimicos?codigo=${codigo}&noLote=${encodeURIComponent(noLote)}`)
       toast({
         title: "✅ Químico eliminado",
         description: `"${descripcion}" fue eliminado correctamente.`,
-      });
-      fetchQuimicos();
+      })
+      fetchQuimicos()
     } catch (error: any) {
       toast({
         title: "❌ Error al eliminar",
         description: error.response?.data?.error || "No se pudo completar la acción.",
         variant: "destructive",
-      });
+      })
     }
-  };
+  }
 
   const cargarUbicaciones = async () => {
     try {
-      const { data } = await axios.get("/api/ubicaciones");
-      if (data && Array.isArray(data)) {
-        setUbicaciones(data);
-      } else {
-        throw new Error("Formato de datos inesperado");
-      }
+      const { data } = await axios.get("/api/ubicaciones")
+      setUbicaciones(Array.isArray(data) ? data : [])
     } catch (error) {
-      console.error("Error al cargar ubicaciones:", error);
+      console.error("Error al cargar ubicaciones:", error)
       toast({
         title: "Error",
         description: "No se pudieron cargar las ubicaciones",
         variant: "destructive",
-      });
-      setUbicaciones([]);
+      })
     }
-  };
+  }
 
   useEffect(() => {
-    fetchQuimicos();
-    cargarUbicaciones();
-  }, []);
+    fetchQuimicos()
+    cargarUbicaciones()
+  }, [])
 
   useEffect(() => {
-    if (refrescar !== 0) fetchQuimicos();
-  }, [refrescar]);
+    if (refrescar !== 0) fetchQuimicos()
+  }, [refrescar])
 
   const datosAMostrar = 
     (busquedaCodigo.trim() && datosFiltradosCodigo) ? datosFiltradosCodigo :
     (busquedaNoLote.trim() && datosFiltradosNoLote) ? datosFiltradosNoLote :
-    quimicos;
+    quimicos
 
   const noHayResultados = (
     (busquedaCodigo.trim() && datosFiltradosCodigo?.length === 0) ||
     (busquedaNoLote.trim() && datosFiltradosNoLote?.length === 0)
-  );
+  )
 
   const formatValue = (value: any, type?: 'date' | 'number') => {
-    if (value == null) return '-';
-    if (type === 'date') return new Date(value).toLocaleDateString();
-    if (type === 'number') return Number(value).toLocaleString();
-    return String(value);
-  };
+    if (value == null) return '-'
+    if (type === 'date') return new Date(value).toLocaleDateString()
+    if (type === 'number') return Number(value).toLocaleString()
+    return String(value)
+  }
 
   return (
     <div className="overflow-x-auto mt-6">
@@ -162,7 +172,7 @@ export function TablaQuimicos({
             <tr>
               <th className="p-3 text-left">Código</th>
               <th className="p-3 text-left">Descripción</th>
-              <th className="p-3 text-left">No. Lote</th>
+              <th className="p-3 text-left min-w-[120px]">No. Lote</th>
               <th className="p-3 text-left">Exist. Fís.</th>
               <th className="p-3 text-left">Exist. Sist.</th>
               <th className="p-3 text-left">Diferencias</th>
@@ -203,10 +213,29 @@ export function TablaQuimicos({
               >
                 <td className="p-2">{item.codigo}</td>
                 <td className="p-2">{item.descripcion}</td>
-                <td className="p-2">{item.noLote}</td>
-                <td className="p-2">{formatValue(item.existenciaFisica, 'number')}</td>
-                <td className="p-2">{formatValue(item.existenciaSistema, 'number')}</td>
-                <td className="p-2">{formatValue(item.diferencias, 'number')}</td>
+                <td className="p-2 whitespace-nowrap">{item.noLote}</td>
+                
+                {/* Existencias con semáforo */}
+                <td className="p-2">
+                  <SemaforoExistencia valor={Number(item.existenciaFisica) || 0} />
+                </td>
+                <td className="p-2">
+                  <SemaforoExistencia valor={Number(item.existenciaSistema) || 0} />
+                </td>
+                
+                {/* Diferencias con indicador */}
+                <td className="p-2">
+                  <span className={`
+                    inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                    ${item.diferencias > 0 
+                      ? 'bg-purple-100 text-purple-800 border border-purple-300' 
+                      : 'bg-gray-100 text-gray-800 border border-gray-300'
+                    }`}
+                  >
+                    {formatValue(item.diferencias, 'number')}
+                  </span>
+                </td>
+
                 <td className="p-2">{formatValue(item.cantidadEntrada, 'number')}</td>
                 <td className="p-2">{formatValue(item.cantidadSalida, 'number')}</td>
                 <td className="p-2">{item.unidadMedidaId}</td>
@@ -278,5 +307,5 @@ export function TablaQuimicos({
         </table>
       </div>
     </div>
-  );
+  )
 }

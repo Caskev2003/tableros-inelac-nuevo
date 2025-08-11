@@ -339,26 +339,6 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
 
         <FormField
           control={form.control}
-          name="diasDeVida"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-white">Días de Vida</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  {...field}
-                  value={field.value ?? ""}
-                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
-                  className="text-black bg-white"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
           name="unidadMedidaId"
           render={({ field }) => (
             <FormItem>
