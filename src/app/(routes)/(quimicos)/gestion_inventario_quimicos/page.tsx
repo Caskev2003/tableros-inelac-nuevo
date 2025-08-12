@@ -11,11 +11,12 @@ export default async function page() {
   }
 
   return (
-    <div className="relative bg-[#2b2b2b] min-h-screen overflow-hidden">
+    <div className="relative bg-[#2b2b2b] min-h-screen">
       <Navbar />
 
-      <div className="mt-16 px-4">
-        <h1 className="text-white text-3xl font-bold text-center">CONTROL DE QUÍMICOS</h1>
+      {/* Contenido pegado al NavBar sin margen superior */}
+      <div className="px-4"> {/* Eliminado completamente mt-16 */}
+        <h1 className="text-white text-3xl font-bold text-center pt-1">CONTROL DE QUÍMICOS</h1> {/* pt-1 mínimo */}
 
         <ControlQuimicosClient/>
       </div>

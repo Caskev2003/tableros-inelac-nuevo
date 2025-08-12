@@ -36,6 +36,8 @@ export function TablaRefacciones({
   const [refacciones, setRefacciones] = useState<Refaccion[]>([])
   const [refaccionSeleccionada, setRefaccionSeleccionada] = useState<Pick<Refaccion, "codigo" | "descripcion"> | null>(null)
   const [ubicaciones, setUbicaciones] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
 
   const fetchRefacciones = async () => {
     try {
@@ -88,11 +90,58 @@ export function TablaRefacciones({
     datosAMostrar = datosFiltradosNoParte
   }
 
+  // Calcular datos paginados
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentItems = datosAMostrar.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(datosAMostrar.length / itemsPerPage)
+
   const noHayResultados =
     (busquedaCodigo.trim() !== "" && datosFiltradosCodigo?.length === 0) ||
     (busquedaNoParte.trim() !== "" && datosFiltradosNoParte?.length === 0)
 
-  // Componente reutilizable para el semáforo
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Función para generar los números de página a mostrar
+  const getPageNumbers = () => {
+    const pages = []
+    const maxVisiblePages = 5 // Máximo de números de página a mostrar
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      let startPage = Math.max(currentPage - Math.floor(maxVisiblePages / 2), 1)
+      let endPage = startPage + maxVisiblePages - 1
+      
+      if (endPage > totalPages) {
+        endPage = totalPages
+        startPage = endPage - maxVisiblePages + 1
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i)
+      }
+    }
+    
+    return pages
+  }
+
   const SemaforoExistencia = ({ valor }: { valor: number }) => {
     return (
       <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -109,7 +158,70 @@ export function TablaRefacciones({
   }
 
   return (
-    <div className="overflow-x-auto mt-6">
+  <div className="overflow-x-auto mt-6">
+    {/* Controles de paginación mejorados con conteo de registros */}
+    {datosAMostrar.length > itemsPerPage && (
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+        {/* Etiqueta de conteo de registros */}
+        <div className="text-sm font-medium text-blue-600">
+          Mostrando registros{' '}
+          <span className="font-bold text-blue-800">
+            {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, datosAMostrar.length)}
+          </span>{' '}
+          de <span className="font-bold">{datosAMostrar.length}</span>
+        </div>
+        
+        {/* Controles de paginación */}
+        <div className="flex items-center gap-2">
+          <div className="text-sm font-medium text-blue-600">
+            Página <span className="font-bold text-blue-800">{currentPage}</span> de{' '}
+            <span className="font-bold">{totalPages}</span>
+          </div>
+          
+          <button 
+            onClick={handlePrevPage}
+            disabled={currentPage === 1}
+            className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
+              currentPage === 1 
+                ? 'text-gray-500 bg-gray-200 cursor-not-allowed' 
+                : 'text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md'
+            }`}
+          >
+            ANTERIOR
+          </button>
+          
+          {/* Números de página interactivos */}
+          <div className="flex gap-1">
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                onClick={() => goToPage(page)}
+                className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
+                  currentPage === page
+                    ? 'text-white bg-gradient-to-r from-orange-500 to-orange-600 shadow-md transform scale-105'
+                    : 'text-blue-700 bg-blue-100 hover:bg-blue-200'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          
+          <button 
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
+              currentPage === totalPages 
+                ? 'text-gray-500 bg-gray-200 cursor-not-allowed' 
+                : 'text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md'
+            }`}
+          >
+            SIGUIENTE
+          </button>
+        </div>
+      </div>
+    )}
+      
       <div className="max-h-[calc(100vh-300px)] overflow-y-auto rounded-lg shadow">
         <table className="min-w-full text-sm border-collapse bg-white">
           <thead className="bg-[#1e3a5f] text-white sticky top-0 z-10">
@@ -142,7 +254,7 @@ export function TablaRefacciones({
               </tr>
             )}
 
-            {datosAMostrar.map((item) => (
+            {currentItems.map((item) => (
               <tr
                 key={item.codigo}
                 className="border-b bg-[#424242] text-white hover:bg-gray-400 hover:text-black transition"

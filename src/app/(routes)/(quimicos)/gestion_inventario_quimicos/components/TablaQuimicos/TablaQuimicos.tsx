@@ -71,6 +71,9 @@ interface Props {
   datosFiltradosNoLote?: Quimico[] | null
   busquedaCodigo: string
   busquedaNoLote: string
+  currentPage?: number
+  onPageChange?: (page: number) => void
+  itemsPerPage?: number
 }
 
 export function TablaQuimicos({
@@ -79,11 +82,18 @@ export function TablaQuimicos({
   datosFiltradosNoLote = null,
   busquedaCodigo,
   busquedaNoLote,
+  currentPage = 1,
+  onPageChange,
+  itemsPerPage = 20
 }: Props) {
   const [quimicos, setQuimicos] = useState<Quimico[]>([])
   const [quimicoSeleccionado, setQuimicoSeleccionado] = useState<Pick<Quimico, "codigo" | "descripcion"> | null>(null)
   const [ubicaciones, setUbicaciones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Calcular datos paginados
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
 
   const fetchQuimicos = async () => {
     setLoading(true)
@@ -152,10 +162,19 @@ export function TablaQuimicos({
     (busquedaNoLote.trim() && datosFiltradosNoLote) ? datosFiltradosNoLote :
     quimicos
 
+  const currentItems = datosAMostrar.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.max(1, Math.ceil(datosAMostrar.length / itemsPerPage)) // Asegura mínimo 1 página
+
   const noHayResultados = (
     (busquedaCodigo.trim() && datosFiltradosCodigo?.length === 0) ||
     (busquedaNoLote.trim() && datosFiltradosNoLote?.length === 0)
   )
+
+  const handlePageChange = (page: number) => {
+    if (onPageChange) {
+      onPageChange(Math.max(1, Math.min(page, totalPages))) // Limita entre 1 y totalPages
+    }
+  }
 
   const formatValue = (value: any, type?: 'date' | 'number') => {
     if (value == null) return '-'
@@ -166,6 +185,73 @@ export function TablaQuimicos({
 
   return (
     <div className="overflow-x-auto mt-6">
+      {/* Controles de paginación - SIEMPRE VISIBLES */}
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 bg-[#2b2b2b] p-3 rounded-lg">
+        {/* Conteo de registros */}
+        <div className="text-sm font-medium text-blue-300">
+          Mostrando <span className="font-bold text-white">
+            {datosAMostrar.length === 0 ? 0 : indexOfFirstItem + 1}-{Math.min(indexOfLastItem, datosAMostrar.length)}
+          </span> de <span className="font-bold text-white">{datosAMostrar.length}</span> registros
+        </div>
+        
+        {/* Controles de navegación - Mostrar solo si hay más de 1 página */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
+                currentPage === 1 
+                  ? 'text-gray-400 bg-gray-700 cursor-not-allowed' 
+                  : 'text-white bg-blue-600 hover:bg-blue-700 shadow-md'
+              }`}
+            >
+              Anterior
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
+                      currentPage === pageNum
+                        ? 'text-white bg-orange-600 shadow-md transform scale-105'
+                        : 'text-blue-300 bg-[#3a3a3a] hover:bg-[#4a4a4a]'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+            
+            <button 
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
+                currentPage === totalPages 
+                  ? 'text-gray-400 bg-gray-700 cursor-not-allowed' 
+                  : 'text-white bg-blue-600 hover:bg-blue-700 shadow-md'
+              }`}
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
+      </div>
       <div className="max-h-[calc(100vh-300px)] overflow-y-auto rounded-lg shadow">
         <table className="min-w-full text-sm border-collapse bg-white">
           <thead className="bg-[#1e3a5f] text-white sticky top-0 z-10">
@@ -206,7 +292,7 @@ export function TablaQuimicos({
               </tr>
             )}
 
-            {!loading && datosAMostrar.map((item) => (
+            {!loading && currentItems.map((item) => (
               <tr
                 key={`${item.codigo}-${item.noLote}`}
                 className="border-b bg-[#424242] text-white hover:bg-gray-400 hover:text-black transition"
@@ -215,7 +301,6 @@ export function TablaQuimicos({
                 <td className="p-2">{item.descripcion}</td>
                 <td className="p-2 whitespace-nowrap">{item.noLote}</td>
                 
-                {/* Existencias con semáforo */}
                 <td className="p-2">
                   <SemaforoExistencia valor={Number(item.existenciaFisica) || 0} />
                 </td>
@@ -223,7 +308,6 @@ export function TablaQuimicos({
                   <SemaforoExistencia valor={Number(item.existenciaSistema) || 0} />
                 </td>
                 
-                {/* Diferencias con indicador */}
                 <td className="p-2">
                   <span className={`
                     inline-flex items-center px-2 py-1 rounded-full text-xs font-medium

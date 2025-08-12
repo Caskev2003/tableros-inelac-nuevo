@@ -11,11 +11,12 @@ export default async function page() {
   }
 
   return (
-    <div className="relative bg-[#2b2b2b] min-h-screen overflow-hidden">
+    <div className="relative bg-[#2b2b2b] min-h-screen">
       <Navbar />
 
-      <div className="mt-16 px-4">
-        <h1 className="text-white text-3xl font-bold text-center">CONTROL DE REFACCIONES</h1>
+      {/* Contenido pegado al NavBar sin margen superior */}
+      <div className="px-4"> {/* Eliminado mt-16 */}
+        <h1 className="text-white text-3xl font-bold text-center py-1">CONTROL DE REFACCIONES</h1> {/* Añadido py-1 para mínimo espacio */}
 
         <ControlRefaccionesClient/>
       </div>
