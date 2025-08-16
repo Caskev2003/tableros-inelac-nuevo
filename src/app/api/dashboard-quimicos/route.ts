@@ -4,125 +4,230 @@ import { db } from "@/lib/db";
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const filtro = url.searchParams.get("filtro");
+    const anio = url.searchParams.get("anio");
+    const mes = url.searchParams.get("mes");
+    const estado = url.searchParams.get("estado");
 
-    const now = new Date();
-    const currentMonth = now.toISOString().slice(0, 7);
+    let condiciones: string[] = [];
+    let condicionesPie: string[] = [];
+    
+    if (anio) {
+      const cond = `YEAR(q.fechaIngreso) = '${anio}'`;
+      condiciones.push(cond);
+      condicionesPie.push(cond);
+    }
+    if (mes) {
+      const cond = `MONTH(q.fechaIngreso) = '${mes}'`;
+      condiciones.push(cond);
+      condicionesPie.push(cond);
+    }
+    
+    const whereClause = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+    const whereClausePie = condicionesPie.length ? `WHERE ${condicionesPie.join(' AND ')}` : '';
 
-    const datosKPI: any[] = await db.$queryRawUnsafe(`
+    // 1. KPI - Agregamos productosTotales que el frontend espera
+    const kpiData: any[] = await db.$queryRawUnsafe(`
       SELECT
-        SUM(existenciaFisica) AS totalExistencias,
-        AVG(existenciaFisica) AS promedioExistencias,
-        SUM(CASE WHEN existenciaFisica = 0 THEN 1 ELSE 0 END) AS existenciasCero,
-        SUM(CASE WHEN existenciaFisica BETWEEN 1 AND 5 THEN 1 ELSE 0 END) AS existenciasCriticas,
-        COUNT(CASE WHEN existenciaFisica < 10 THEN 1 ELSE NULL END) AS existenciasBajo10,
-        SUM(retenidos) AS retenidos
-      FROM quimicos;
+        SUM(q.existenciaFisica) AS totalExistencias,
+        AVG(q.existenciaFisica) AS promedioExistencias,
+        SUM(CASE WHEN q.existenciaFisica = 0 THEN 1 ELSE 0 END) AS existenciasCero,
+        SUM(CASE WHEN q.existenciaFisica BETWEEN 1 AND 5 THEN 1 ELSE 0 END) AS existenciasCriticas,
+        SUM(CASE WHEN q.existenciaFisica < 10 THEN 1 ELSE 0 END) AS existenciasBajo10,
+        SUM(q.retenidos) AS retenidos,
+        COUNT(DISTINCT q.noLote) AS productosTotales
+      FROM quimicos q
+      ${whereClause};
     `);
 
-    const {
-      totalExistencias,
-      promedioExistencias,
-      existenciasCero,
-      existenciasCriticas,
-      existenciasBajo10,
-      retenidos
-    } = datosKPI[0] ?? {};
+    // Gráfico de barras - Existencias acumuladas por mes
+    const barChartData: any[] = await db.$queryRawUnsafe(`
+      SELECT
+        DATE_FORMAT(q.fechaIngreso, '%Y-%m') AS periodo,
+        SUM(q.existenciaFisica) AS totalExistencias,
+        SUM(CASE WHEN MONTH(q.fechaIngreso) = MONTH(CURRENT_DATE()) 
+                 THEN q.existenciaFisica ELSE 0 END) AS existenciaMesActual
+      FROM quimicos q
+      ${whereClause}
+      GROUP BY periodo
+      ORDER BY periodo;
+    `);
 
-    const resultKPI = {
-      totalExistencias: Number(totalExistencias) ?? 0,
-      promedio: Number(promedioExistencias) ?? 0,
-      existenciasCero: Number(existenciasCero) ?? 0,
-      existenciasCriticas: Number(existenciasCriticas) ?? 0,
-      existenciasBajo10: Number(existenciasBajo10) ?? 0,
-      retenidos: Number(retenidos) ?? 0
-    };
+    // Gráfico de líneas - Tendencia de movimientos
+    const lineChartData: any[] = await db.$queryRawUnsafe(`
+      SELECT
+        DATE_FORMAT(q.fechaIngreso, '%Y-%m') AS periodo,
+        SUM(CASE WHEN q.movimiento = 'ENTRADA' THEN q.existenciaFisica ELSE 0 END) AS entradas,
+        SUM(CASE WHEN q.movimiento = 'SALIDA' THEN q.existenciaFisica ELSE 0 END) AS salidas
+      FROM quimicos q
+      ${whereClause}
+      GROUP BY periodo
+      ORDER BY periodo;
+    `);
 
-    let condicion = `WHERE DATE_FORMAT(fechaIngreso, '%Y-%m') < '${currentMonth}'`;
+    // Gráfico de pie - Distribución por movimiento
+    const pieChartData: any[] = await db.$queryRawUnsafe(`
+      SELECT
+        q.movimiento,
+        SUM(q.existenciaFisica) AS totalExistencias
+      FROM quimicos q
+      ${whereClausePie}
+      GROUP BY q.movimiento
+      ORDER BY totalExistencias DESC;
+    `);
 
-    if (filtro) {
-      if (/^\d{4}$/.test(filtro)) {
-        condicion = `WHERE YEAR(fechaIngreso) = ${filtro}`;
-      } else if (/^\d{4}-\d{2}$/.test(filtro)) {
-        condicion = `WHERE DATE_FORMAT(fechaIngreso, '%Y-%m') = '${filtro}'`;
-      } else if (/^\d{2}$/.test(filtro)) {
-        condicion = `WHERE DATE_FORMAT(fechaIngreso, '%m') = '${filtro}'`;
-      } else {
-        condicion = `WHERE codigo = '${filtro}' OR noLote = '${filtro}'`;
+    // Productos críticos con estado (vigente, por-vencer, caducado)
+    let condicionesCriticos = "WHERE q.existenciaFisica < 10";
+    if (estado) {
+      if (estado === "vigente") {
+        condicionesCriticos += " AND (q.fechaVencimiento IS NULL OR q.fechaVencimiento > DATE_ADD(CURDATE(), INTERVAL 30 DAY))";
+      } else if (estado === "por-vencer") {
+        condicionesCriticos += " AND q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)";
+      } else if (estado === "caducado") {
+        condicionesCriticos += " AND q.fechaVencimiento < CURDATE()";
       }
     }
 
-    const datosHistoricos: any[] = await db.$queryRawUnsafe(`
+    const criticosData: any[] = await db.$queryRawUnsafe(`
       SELECT
-        DATE_FORMAT(fechaIngreso, '%Y-%m') AS mes,
-        SUM(existenciaFisica) AS totalMes,
-        MAX(codigo) AS codigo,
-        MAX(descripcion) AS descripcion,
-        MAX(noLote) AS noLote
-      FROM quimicos
-      ${condicion}
-      GROUP BY mes
-      ORDER BY mes;
+        q.codigo,
+        q.descripcion,
+        q.existenciaFisica,
+        q.noLote,
+        q.fechaVencimiento,
+        CASE 
+          WHEN q.fechaVencimiento IS NULL OR q.fechaVencimiento > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Vigente'
+          WHEN q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por Vencer'
+          WHEN q.fechaVencimiento < CURDATE() THEN 'Caducado'
+          ELSE 'Vigente'
+        END AS estado
+      FROM quimicos q
+      ${condicionesCriticos}
+      ORDER BY q.existenciaFisica ASC
+      LIMIT 20;
     `);
 
-    const etiquetas: string[] = [];
-    const valoresAcumulados: number[] = [];
-    const valoresPorMes: number[] = [];
-    const meta = [];
-    let acumulado = 0;
+    // Productos próximos a vencer (sin filtro de estado)
+    const proximosVencerData: any[] = await db.$queryRawUnsafe(`
+      SELECT
+        q.codigo,
+        q.descripcion,
+        q.existenciaFisica,
+        q.noLote,
+        q.fechaVencimiento,
+        CASE 
+          WHEN q.fechaVencimiento IS NULL OR q.fechaVencimiento > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Vigente'
+          WHEN q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por Vencer'
+          WHEN q.fechaVencimiento < CURDATE() THEN 'Caducado'
+          ELSE 'Vigente'
+        END AS estado
+      FROM quimicos q
+      WHERE q.fechaVencimiento BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 MONTH)
+      ${anio || mes ? 'AND ' + condiciones.join(' AND ') : ''}
+      ORDER BY q.fechaVencimiento ASC
+      LIMIT 10;
+    `);
 
-    for (const fila of datosHistoricos) {
-      const totalMes = Number(fila.totalMes);
-      acumulado += totalMes;
-      etiquetas.push(fila.mes);
-      valoresAcumulados.push(acumulado);
-      valoresPorMes.push(totalMes);
-      meta.push({
-        existencia: totalMes,
-        codigo: fila.codigo,
-        descripcion: fila.descripcion,
-        noLote: fila.noLote
-      });
-    }
-
-    if (!filtro) {
-      const valorMesActual = Number(totalExistencias) - acumulado;
-      etiquetas.push(currentMonth);
-      valoresPorMes.push(valorMesActual);
-      valoresAcumulados.push(Number(totalExistencias));
-      meta.push({ 
-        existencia: valorMesActual, 
-        codigo: 'TOTAL', 
-        descripcion: 'Total acumulado',
-        noLote: 'N/A'
-      });
-    }
-
-    const chartDataset = {
-      labels: etiquetas,
-      datasets: [
-        {
-          label: "Existencias Totales Acumuladas",
-          data: valoresAcumulados,
-          meta,
-          backgroundColor: "rgba(75, 192, 192, 0.2)",
-          borderColor: "rgba(75, 192, 192, 1)",
-          borderWidth: 1,
-          fill: false
+    // Formateamos los datos para que coincidan con lo que espera el frontend
+    const formattedData = {
+      kpi: {
+        totalExistencias: Number(kpiData[0]?.totalExistencias) || 0,
+        promedio: Number(kpiData[0]?.promedioExistencias) || 0,
+        existenciasCero: Number(kpiData[0]?.existenciasCero) || 0,
+        existenciasCriticas: Number(kpiData[0]?.existenciasCriticas) || 0,
+        existenciasBajo10: Number(kpiData[0]?.existenciasBajo10) || 0,
+        retenidos: Number(kpiData[0]?.retenidos) || 0,
+        productosTotales: Number(kpiData[0]?.productosTotales) || 0
+      },
+      charts: {
+        barChart: {
+          labels: barChartData.map(item => item.periodo),
+          datasets: [
+            {
+              label: 'Existencias Totales',
+              data: barChartData.map(item => Number(item.totalExistencias) || 0),
+              backgroundColor: 'rgba(79, 70, 229, 0.5)',
+              borderColor: 'rgba(79, 70, 229, 1)',
+              borderWidth: 2,
+              meta: barChartData.map(item => ({
+                existencia: Number(item.existenciaMesActual) || 0
+              }))
+            }
+          ]
+        },
+        lineChart: {
+          labels: lineChartData.map(item => item.periodo),
+          datasets: [
+            {
+              label: 'Entradas',
+              data: lineChartData.map(item => Number(item.entradas) || 0),
+              borderColor: '#10B981',
+              backgroundColor: '#10B981',
+              borderWidth: 3,
+              tension: 0.4,
+              fill: false
+            },
+            {
+              label: 'Salidas',
+              data: lineChartData.map(item => Number(item.salidas) || 0),
+              borderColor: '#EF4444',
+              backgroundColor: '#EF4444',
+              borderWidth: 3,
+              tension: 0.4,
+              fill: false
+            }
+          ]
+        },
+        pieChart: {
+          labels: pieChartData.map(item => item.movimiento),
+          datasets: [
+            {
+              label: 'Distribución por Movimiento',
+              data: pieChartData.map(item => Number(item.totalExistencias) || 0),
+              backgroundColor: pieChartData.map(item => {
+                switch(item.movimiento) {
+                  case 'ENTRADA': return 'rgba(16, 185, 129, 0.7)';
+                  case 'SALIDA': return 'rgba(239, 68, 68, 0.7)';
+                  case 'NUEVO_INGRESO': return 'rgba(59, 130, 246, 0.7)';
+                  case 'EDITADO': return 'rgba(245, 158, 11, 0.7)';
+                  default: return 'rgba(156, 163, 175, 0.7)';
+                }
+              }),
+              borderColor: '#fff',
+              borderWidth: 1
+            }
+          ]
         }
-      ]
+      },
+      topItems: {
+        criticos: criticosData.map(item => ({
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          existenciaFisica: Number(item.existenciaFisica) || 0,
+          noLote: item.noLote,
+          estado: item.estado
+        })),
+        proximosVencer: proximosVencerData.map(item => ({
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          existenciaFisica: Number(item.existenciaFisica) || 0,
+          noLote: item.noLote,
+          estado: item.estado,
+          diasRestantes: item.fechaVencimiento 
+            ? Math.ceil((new Date(item.fechaVencimiento).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+            : null
+        }))
+      }
     };
 
-    return NextResponse.json({
-      kpi: resultKPI,
-      barChart: chartDataset,
-      lineChart: chartDataset
-    });
+    return NextResponse.json(formattedData);
   } catch (error) {
-    console.error("Error al obtener los datos", error);
-    return NextResponse.json({
-      mensaje: "Error al obtener datos",
-      error: (error as Error).message
-    });
+    console.error("Error al obtener los datos del dashboard:", error);
+    return NextResponse.json(
+      { 
+        message: "Error interno del servidor",
+        error: error instanceof Error ? error.message : "Error desconocido"
+      },
+      { status: 500 }
+    );
   }
 }
