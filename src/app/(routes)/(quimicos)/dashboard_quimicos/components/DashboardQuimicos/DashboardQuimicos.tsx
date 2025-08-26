@@ -229,8 +229,7 @@ const commonChartOptions = {
           const cantidadMes = dataset.meta?.[index]?.existencia ?? 'N/A';
 
           return [
-            `Acumulado: ${actual}`,
-            `En el mes: ${cantidadMes}`,
+            `En el mes: ${actual}`,
             `Tendencia: ${tendencia}`
           ];
         }
@@ -245,63 +244,89 @@ const commonChartOptions = {
   }
 };
 
-// Opciones específicas para gráfico de barras - Corregido
 const barChartOptions = {
-  ...commonChartOptions,
-  plugins: {
-    ...commonChartOptions.plugins,
-    title: {
-      display: true,
-      text: 'Existencias Acumuladas de Químicos',
-      font: {
-        size: 18 as number,
-        weight: 'bold' as const
-      },
-      color: COLORS.dark
-    }
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
+    ...commonChartOptions,
+    plugins: {
+      ...commonChartOptions.plugins,
       title: {
         display: true,
-        text: 'Cantidad',
+        text: 'Top 10 Productos con Más Existencia',
         font: {
-          weight: 'bold' as const // Especificar como constante
-        }
+          size: 18,
+          weight: 'bold' as const
+        },
+        color: COLORS.dark
       },
-      grid: {
-        color: '#E5E7EB'
+      tooltip: {
+        callbacks: {
+          label: (context: any) => {
+            const label = context.dataset.label || '';
+            const value = context.raw.toLocaleString();
+            return `${label}: ${value} unidades`;
+          }
+        }
       }
     },
-    x: {
-      title: {
-        display: true,
-        text: 'Periodo',
-        font: {
-          weight: 'bold' as const // Especificar como constante
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Cantidad',
+          font: {
+            weight: 'bold' as const
+          }
+        },
+        grid: {
+          color: '#E5E7EB'
         }
       },
-      grid: {
-        color: '#E5E7EB'
+      x: {
+        title: {
+          display: true,
+          text: 'Productos',
+          font: {
+            weight: 'bold' as const
+          }
+        },
+        grid: {
+          color: '#E5E7EB'
+        }
       }
     }
-  }
-};
+  };
 
-// Opciones para gráfico de líneas - Corregido
+// Opciones para gráfico de líneas - Actualizado con tooltip correcto
 const lineChartOptions = {
   ...commonChartOptions,
   plugins: {
     ...commonChartOptions.plugins,
     title: {
       display: true,
-      text: 'Tendencia de Existencias',
+      text: 'Tendencia por mes de las existencias de Químicos',
       font: {
-        size: 18 as number,
+        size: 18,
         weight: 'bold' as const
       },
       color: COLORS.dark
+    },
+    tooltip: {
+      callbacks: {
+        label: (context: any) => {
+          const rawData = context.dataset.data[context.dataIndex];
+          return [
+            `Existencia ingresadas en el mes: ${rawData.existencia_mes}`,
+            `Existencia total: ${rawData.y}`,
+            `Tendencia: ${rawData.tendencia} (${rawData.diferencia >= 0 ? '+' : ''}${rawData.diferencia})`
+          ];
+        }
+      },
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: '#fff',
+      bodyColor: '#fff',
+      displayColors: false,
+      padding: 12,
+      cornerRadius: 8
     }
   },
   scales: {
@@ -309,7 +334,7 @@ const lineChartOptions = {
       beginAtZero: false,
       title: {
         display: true,
-        text: 'Cantidad',
+        text: 'Existencias Acumuladas',
         font: {
           weight: 'bold' as const
         }
@@ -330,9 +355,21 @@ const lineChartOptions = {
         color: '#E5E7EB'
       }
     }
-  }
+  },
+  elements: {
+    line: {
+      tension: 0.3,
+      borderWidth: 3
+    },
+    point: {
+      radius: 5,
+      hoverRadius: 8,
+      backgroundColor: COLORS.primary,
+      borderColor: '#fff',
+      borderWidth: 2
+    }
+  },
 };
-
 // Opciones para gráfico de pie - Corregido
 const pieChartOptions = {
   ...commonChartOptions,
@@ -505,21 +542,21 @@ const pieChartOptions = {
         </div>
       </div>
 
-      {/* Gráficos principales */}
+            {/* Gráficos principales */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Gráfico de barras - Existencias acumuladas */}
+        {/* Gráfico de barras - Top 10 productos */}
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
           <div className="h-96">
             {charts?.barChart?.datasets?.length > 0 ? (
               <Bar 
                 data={{
-                  ...charts.barChart,
-                  datasets: charts.barChart.datasets.map(dataset => ({
-                    ...dataset,
-                    backgroundColor: COLORS.primary,
+                  labels: charts.barChart.labels,
+                  datasets: [{
+                    ...charts.barChart.datasets[0],
+                    backgroundColor: COLORS.chart.slice(0, 10),
                     borderColor: COLORS.dark,
-                    borderWidth: 2
-                  }))
+                    borderWidth: 1
+                  }]
                 }} 
                 options={barChartOptions} 
               />

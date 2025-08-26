@@ -21,11 +21,30 @@ export async function GET(req: Request) {
       condiciones.push(cond);
       condicionesPie.push(cond);
     }
+
+    // Agregar condición de estado a todas las consultas principales
+    if (estado) {
+      let condEstado = '';
+      if (estado === "vigente") {
+        condEstado = "(q.fechaVencimiento IS NULL OR q.fechaVencimiento > DATE_ADD(CURDATE(), INTERVAL 30 DAY))";
+      } else if (estado === "por-vencer") {
+        condEstado = "q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)";
+      } else if (estado === "caducado") {
+        condEstado = "q.fechaVencimiento < CURDATE()";
+      }
+      
+      if (condEstado) {
+        condiciones.push(condEstado);
+        condicionesPie.push(condEstado);
+      }
+    }
     
     const whereClause = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
     const whereClausePie = condicionesPie.length ? `WHERE ${condicionesPie.join(' AND ')}` : '';
 
-    // 1. KPI - Agregamos productosTotales que el frontend espera
+    console.log('Where clause principal:', whereClause);
+
+    // 1. KPI - Datos generales (AHORA CON FILTRO DE ESTADO)
     const kpiData: any[] = await db.$queryRawUnsafe(`
       SELECT
         SUM(q.existenciaFisica) AS totalExistencias,
@@ -39,32 +58,52 @@ export async function GET(req: Request) {
       ${whereClause};
     `);
 
-    // Gráfico de barras - Existencias acumuladas por mes
+    // 2. Gráfico de barras - Top 10 productos con más existencias (AHORA CON FILTRO DE ESTADO)
     const barChartData: any[] = await db.$queryRawUnsafe(`
       SELECT
-        DATE_FORMAT(q.fechaIngreso, '%Y-%m') AS periodo,
-        SUM(q.existenciaFisica) AS totalExistencias,
-        SUM(CASE WHEN MONTH(q.fechaIngreso) = MONTH(CURRENT_DATE()) 
-                 THEN q.existenciaFisica ELSE 0 END) AS existenciaMesActual
+        q.codigo,
+        q.descripcion,
+        q.existenciaFisica,
+        q.noLote,
+        q.movimiento
       FROM quimicos q
       ${whereClause}
-      GROUP BY periodo
-      ORDER BY periodo;
+      ORDER BY q.existenciaFisica DESC
+      LIMIT 10;
     `);
 
-    // Gráfico de líneas - Tendencia de movimientos
+    console.log('Top 10 productos:', barChartData);
+
+    // 3. Gráfico de líneas - Evolución histórica (AHORA CON FILTRO DE ESTADO)
     const lineChartData: any[] = await db.$queryRawUnsafe(`
+      WITH datos_mensuales AS (
+        SELECT
+          DATE_FORMAT(q.fechaIngreso, '%Y-%m') AS periodo,
+          YEAR(q.fechaIngreso) AS anio,
+          MONTH(q.fechaIngreso) AS mes,
+          SUM(q.existenciaFisica) AS existencia_mes
+        FROM quimicos q
+        ${whereClause}
+        GROUP BY DATE_FORMAT(q.fechaIngreso, '%Y-%m'), YEAR(q.fechaIngreso), MONTH(q.fechaIngreso)
+      )
       SELECT
-        DATE_FORMAT(q.fechaIngreso, '%Y-%m') AS periodo,
-        SUM(CASE WHEN q.movimiento = 'ENTRADA' THEN q.existenciaFisica ELSE 0 END) AS entradas,
-        SUM(CASE WHEN q.movimiento = 'SALIDA' THEN q.existenciaFisica ELSE 0 END) AS salidas
-      FROM quimicos q
-      ${whereClause}
-      GROUP BY periodo
-      ORDER BY periodo;
+        periodo,
+        existencia_mes,
+        SUM(existencia_mes) OVER (ORDER BY anio, mes) AS existencia_acumulada,
+        COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0) AS mes_anterior,
+        (existencia_mes - COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0)) AS diferencia,
+        CASE 
+          WHEN (existencia_mes - COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0)) > 0 THEN 'subió'
+          WHEN (existencia_mes - COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0)) < 0 THEN 'bajó'
+          ELSE 'igual'
+        END AS tendencia
+      FROM datos_mensuales
+      ORDER BY anio, mes;
     `);
 
-    // Gráfico de pie - Distribución por movimiento
+    console.log('Datos de línea crudos:', JSON.stringify(lineChartData, null, 2));
+
+    // 4. Gráfico de pie - Distribución por movimiento (AHORA CON FILTRO DE ESTADO)
     const pieChartData: any[] = await db.$queryRawUnsafe(`
       SELECT
         q.movimiento,
@@ -75,7 +114,7 @@ export async function GET(req: Request) {
       ORDER BY totalExistencias DESC;
     `);
 
-    // Productos críticos con estado (vigente, por-vencer, caducado)
+    // 5. Productos críticos con estado (vigente, por-vencer, caducado) - FILTRO ORIGINAL
     let condicionesCriticos = "WHERE q.existenciaFisica < 10";
     if (estado) {
       if (estado === "vigente") {
@@ -96,7 +135,7 @@ export async function GET(req: Request) {
         q.fechaVencimiento,
         CASE 
           WHEN q.fechaVencimiento IS NULL OR q.fechaVencimiento > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Vigente'
-          WHEN q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por Vencer'
+          WHEN q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 Day) THEN 'Por Vencer'
           WHEN q.fechaVencimiento < CURDATE() THEN 'Caducado'
           ELSE 'Vigente'
         END AS estado
@@ -106,7 +145,18 @@ export async function GET(req: Request) {
       LIMIT 20;
     `);
 
-    // Productos próximos a vencer (sin filtro de estado)
+    // 6. Productos próximos a vencer (AHORA CON FILTRO DE ESTADO)
+    let condicionesProximosVencer = "WHERE q.fechaVencimiento BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 MONTH)";
+    if (estado) {
+      if (estado === "vigente") {
+        condicionesProximosVencer += " AND (q.fechaVencimiento IS NULL OR q.fechaVencimiento > DATE_ADD(CURDATE(), INTERVAL 30 DAY))";
+      } else if (estado === "por-vencer") {
+        condicionesProximosVencer += " AND q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)";
+      } else if (estado === "caducado") {
+        condicionesProximosVencer += " AND q.fechaVencimiento < CURDATE()";
+      }
+    }
+
     const proximosVencerData: any[] = await db.$queryRawUnsafe(`
       SELECT
         q.codigo,
@@ -121,7 +171,7 @@ export async function GET(req: Request) {
           ELSE 'Vigente'
         END AS estado
       FROM quimicos q
-      WHERE q.fechaVencimiento BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 MONTH)
+      ${condicionesProximosVencer}
       ${anio || mes ? 'AND ' + condiciones.join(' AND ') : ''}
       ORDER BY q.fechaVencimiento ASC
       LIMIT 10;
@@ -140,16 +190,21 @@ export async function GET(req: Request) {
       },
       charts: {
         barChart: {
-          labels: barChartData.map(item => item.periodo),
+          labels: barChartData.map(item => 
+            `${item.codigo} - ${item.descripcion?.slice(0, 30)}${item.descripcion?.length > 30 ? '...' : ''}`
+          ),
           datasets: [
             {
-              label: 'Existencias Totales',
-              data: barChartData.map(item => Number(item.totalExistencias) || 0),
+              label: 'Existencias',
+              data: barChartData.map(item => Number(item.existenciaFisica) || 0),
               backgroundColor: 'rgba(79, 70, 229, 0.5)',
               borderColor: 'rgba(79, 70, 229, 1)',
               borderWidth: 2,
               meta: barChartData.map(item => ({
-                existencia: Number(item.existenciaMesActual) || 0
+                codigo: item.codigo,
+                descripcion: item.descripcion,
+                noLote: item.noLote,
+                movimiento: item.movimiento
               }))
             }
           ]
@@ -158,24 +213,28 @@ export async function GET(req: Request) {
           labels: lineChartData.map(item => item.periodo),
           datasets: [
             {
-              label: 'Entradas',
-              data: lineChartData.map(item => Number(item.entradas) || 0),
-              borderColor: '#10B981',
-              backgroundColor: '#10B981',
-              borderWidth: 3,
-              tension: 0.4,
-              fill: false
-            },
-            {
-              label: 'Salidas',
-              data: lineChartData.map(item => Number(item.salidas) || 0),
-              borderColor: '#EF4444',
-              backgroundColor: '#EF4444',
-              borderWidth: 3,
-              tension: 0.4,
-              fill: false
+              label: 'Existencias',
+              data: lineChartData.map(item => ({
+                x: item.periodo,
+                y: Number(item.existencia_acumulada) || 0,
+                existencia_mes: Number(item.existencia_mes) || 0,
+                diferencia: Number(item.diferencia) || 0,
+                tendencia: item.tendencia
+              })),
+              fill: false,
+              backgroundColor: 'rgba(75, 192, 192, 0.5)',
+              borderColor: 'rgba(75, 192, 192, 1)',
+              tension: 0.1
             }
-          ]
+          ],
+          // Metadatos adicionales para el tooltip
+          metadata: lineChartData.map(item => ({
+            periodo: item.periodo,
+            existencia_mes: Number(item.existencia_mes) || 0,
+            existencia_acumulada: Number(item.existencia_acumulada) || 0,
+            diferencia: Number(item.diferencia) || 0,
+            tendencia: item.tendencia
+          }))
         },
         pieChart: {
           labels: pieChartData.map(item => item.movimiento),

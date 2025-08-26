@@ -282,7 +282,7 @@ const DashboardRefacciones = () => {
       ...commonChartOptions.plugins,
       title: {
         display: true,
-        text: 'Evolución Acumulada de Existencias',
+        text: 'Tendencia por mes de las existencias de la Bodega L3',
         font: {
           size: 18,
           weight: 'bold' as const
@@ -294,8 +294,8 @@ const DashboardRefacciones = () => {
           label: (context: any) => {
             const rawData = context.dataset.data[context.dataIndex];
             return [
-              `Existencia mes: ${rawData.existencia_mes}`,
-              `Acumulado: ${rawData.existencia_acumulada}`,
+              `Existencia ingresadas en el mes: ${rawData.existencia_mes}`,
+              `Existencia total: ${rawData.y}`,
               `Tendencia: ${rawData.tendencia} (${rawData.diferencia >= 0 ? '+' : ''}${rawData.diferencia})`
             ];
           },

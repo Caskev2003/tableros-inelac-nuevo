@@ -70,31 +70,35 @@ export async function GET(req: Request) {
       LIMIT 10;
     `);
 
-    // 4. Gráfico de líneas - Evolución histórica de existencias con tendencia
-    const lineChartData: any[] = await db.$queryRawUnsafe(`
-      WITH datos_mensuales AS (
-        SELECT
-          DATE_FORMAT(r.fechaIngreso, '%Y-%m') AS periodo,
-          SUM(r.existenciaFisica) AS existencia_mes
-        FROM refacciones_l3 r
-        INNER JOIN ubicacion u ON r.ubicacionId = u.id
-        ${whereClause}
-        GROUP BY periodo
-        ORDER BY periodo
-      )
-      SELECT
-        periodo,
-        existencia_mes,
-        SUM(existencia_mes) OVER (ORDER BY periodo) AS existencia_acumulada,
-        (existencia_mes - LAG(existencia_mes, 1, 0) OVER (ORDER BY periodo)) AS diferencia,
-        CASE 
-          WHEN (existencia_mes - LAG(existencia_mes, 1, 0) OVER (ORDER BY periodo)) > 0 THEN 'subió'
-          WHEN (existencia_mes - LAG(existencia_mes, 1, 0) OVER (ORDER BY periodo)) < 0 THEN 'bajó'
-          ELSE 'igual'
-        END AS tendencia
-      FROM datos_mensuales
-      ORDER BY periodo;
-    `);
+   // 4. Gráfico de líneas - Evolución histórica de existencias con tendencia (CON DEBUG)
+const lineChartData: any[] = await db.$queryRawUnsafe(`
+  WITH datos_mensuales AS (
+    SELECT
+      DATE_FORMAT(r.fechaIngreso, '%Y-%m') AS periodo,
+      YEAR(r.fechaIngreso) AS anio,
+      MONTH(r.fechaIngreso) AS mes,
+      SUM(r.existenciaFisica) AS existencia_mes
+    FROM refacciones_l3 r
+    INNER JOIN ubicacion u ON r.ubicacionId = u.id
+    ${whereClause}
+    GROUP BY DATE_FORMAT(r.fechaIngreso, '%Y-%m'), YEAR(r.fechaIngreso), MONTH(r.fechaIngreso)
+  )
+  SELECT
+    periodo,
+    existencia_mes,
+    SUM(existencia_mes) OVER (ORDER BY anio, mes) AS existencia_acumulada,
+    COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0) AS mes_anterior,
+    (existencia_mes - COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0)) AS diferencia,
+    CASE 
+      WHEN (existencia_mes - COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0)) > 0 THEN 'subió'
+      WHEN (existencia_mes - COALESCE(LAG(existencia_mes, 1) OVER (ORDER BY anio, mes), 0)) < 0 THEN 'bajó'
+      ELSE 'igual'
+    END AS tendencia
+  FROM datos_mensuales
+  ORDER BY anio, mes;
+`);
+
+console.log('Datos de línea crudos:', JSON.stringify(lineChartData, null, 2));
 
     // 5. Gráfico de pie - Existencias por ubicación
     const pieChartData: any[] = await db.$queryRawUnsafe(`
@@ -104,7 +108,7 @@ export async function GET(req: Request) {
       FROM refacciones_l3 r
       INNER JOIN ubicacion u ON r.ubicacionId = u.id
       ${whereClausePie}
-      GROUP BY ubicacion
+      GROUP BY CONCAT(u.rack, u.fila)
       ORDER BY totalExistencias DESC;
     `);
 
