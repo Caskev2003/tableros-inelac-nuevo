@@ -3,8 +3,6 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
-import { NavbarDesktop } from "@/components/shared/Navbar/NavbarDesktop";
-
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
@@ -33,7 +31,7 @@ export default function RootLayout({
       >
         <AuthSessionProvider>
           {/* El navbar se posiciona fijo, por eso dejamos padding top abajo */}
-          <NavbarDesktop />
+         
           <main className="pt-16">{children}</main>
           <Toaster />
         </AuthSessionProvider>

@@ -30,11 +30,11 @@ export const login = async (values: z.infer<typeof signInSchema>) => {
       case "ADMINISTRADOR":
         return { success: true, redirectTo: "/" }
       case "SUPERVISOR_REFACCIONES":
-        return { success: true, redirectTo: "/vista-refacciones" }
+        return { success: true, redirectTo: "/supervisor_refacciones" }
       case "SUPERVISOR_QUIMICOS":
-        return { success: true, redirectTo: "/vista-quimicos" }
+        return { success: true, redirectTo: "/supervisor_quimicos" }
       case "DESPACHADOR":
-        return { success: true, redirectTo: "/vista-despachador" }
+        return { success: true, redirectTo: "/despachador" }
       default:
         return { error: "Rol desconocido" }
     }

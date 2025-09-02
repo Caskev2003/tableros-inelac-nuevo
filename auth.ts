@@ -3,7 +3,6 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { db } from "@/lib/db"
 import bcrypt from "bcryptjs"
-import type { NextAuthConfig } from "next-auth"
 import type { User as NextAuthUser } from "next-auth"
 
 // Extendemos para incluir ID y rol
@@ -64,7 +63,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.id as string
         session.user.rol = token.rol as string
         session.user.image = token.imagen as string
-        
+        console.log('Session:', session) // Depura la sesión
       }
       return session
     },

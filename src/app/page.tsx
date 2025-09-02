@@ -15,9 +15,9 @@ export default async function Home() {
   const rol = session.user.rol;
 
   // Redirige según el rol del usuario
-  if (rol === "SUPERVISOR_REFACCIONES") redirect("/vista-refacciones");
-  if (rol === "SUPERVISOR_QUIMICOS") redirect("/vista-quimicos");
-  if (rol === "DESPACHADOR") redirect("/vista-despachador");
+  if (rol === "SUPERVISOR_REFACCIONES") redirect("/supervisor_refacciones");
+  if (rol === "SUPERVISOR_QUIMICOS") redirect("/supervisor_quimicos");
+  if (rol === "DESPACHADOR") redirect("/despachador");
   if (rol !== "ADMINISTRADOR") redirect("/login"); // cualquier otro rol o ausencia
 
 

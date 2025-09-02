@@ -1,0 +1,22 @@
+// src/app/(routes)/control_refacciones/registro-refacciones/page.tsx
+import { auth } from "../../../../../../../auth"
+import { RefaccionesForm } from "./RefaccionesForm"
+import { redirect } from "next/navigation"
+
+export default async function Page() {
+  const session = await auth()
+
+  if (!session || !session.user) {
+    redirect("/login")
+  }
+
+  return (
+    <div>
+      <p className="text-3xl font-bold text-left mb-7 text-[#20232d]">
+        REGISTRAR REFACCIÓN
+      </p>
+
+      <RefaccionesForm/>
+    </div>
+  )
+}
