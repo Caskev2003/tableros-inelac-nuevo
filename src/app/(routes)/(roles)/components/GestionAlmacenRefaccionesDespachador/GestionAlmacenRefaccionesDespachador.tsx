@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function GestionAlmacenSR() {
+export function GestionAlmacenRefaccionesDespachador() {
 
   const [showMenu, setShowMenu] = useState(false);
   const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -17,7 +17,7 @@ export function GestionAlmacenSR() {
       // Doble clic detectado
       clearTimeout(clickTimeout);
       setClickTimeout(null);
-      handleNavigation("/supervisor_gestion_inventarios_refacciones");
+      handleNavigation("/despachador_gestion_inventarios_refacciones");
     } else {
       // Esperar para saber si es doble clic
       const timeout = setTimeout(() => {
@@ -55,7 +55,7 @@ export function GestionAlmacenSR() {
           <button
             className="bg-[#0D0A62] text-white text-xs md:text-sm px-3 py-2 rounded-full shadow-lg 
             transition-all duration-300 cursor-pointer hover:bg-blue-500 border-white border-2"
-            onClick={() => handleNavigation("/supervisor_gestion_inventarios_refacciones")}
+            onClick={() => handleNavigation("/despachador_gestion_inventarios_refacciones")}
           >
             📦 Gestion de inventario
           </button>
@@ -64,7 +64,7 @@ export function GestionAlmacenSR() {
            <button
             className="bg-[#0D0A62] text-white text-xs md:text-sm px-3 py-2 rounded-full shadow-lg 
             transition-all duration-300 cursor-pointer hover:bg-blue-500 border-white border-2"
-            onClick={() => handleNavigation("/supervisor_historial_movimientos")}
+            onClick={() => handleNavigation("/despachador_historial_movimientos_refacciones")}
           >
             📝Historial de movimientos
           </button>
@@ -73,7 +73,7 @@ export function GestionAlmacenSR() {
           <button
             className="bg-[#0D0A62] text-white text-xs md:text-sm px-3 py-2 rounded-full shadow-lg
             transition-all duration-300 cursor-pointer hover:bg-blue-500 border-white border-2"
-            onClick={() => handleNavigation("/supervisor_dashboard_refacciones")}
+            onClick={() => handleNavigation("/despachador_dashboard_refacciones")}
           >
             📊 Dashboard
           </button>

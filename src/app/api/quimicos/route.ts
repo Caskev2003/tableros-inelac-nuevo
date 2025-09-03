@@ -18,38 +18,46 @@ interface QuimicoPayload {
   productoLiberado: string;
 }
 
-// Función para calcular días restantes
+// Convierte cualquier fecha ISO o YYYY-MM-DD a Date UTC mediodía
+const parseFechaLocal = (fechaStr: string): Date => {
+  if (!fechaStr) throw new Error("Fecha vacía");
+
+  // Intentar parsear como ISO
+  let fecha = new Date(fechaStr);
+  if (!isNaN(fecha.getTime())) {
+    // Normalizamos a mediodía UTC para evitar desfases
+    return new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate(), 12, 0, 0));
+  }
+
+  // Si no es ISO, intentar como YYYY-MM-DD
+  const partes = fechaStr.split("-").map(Number);
+  if (partes.length !== 3) throw new Error("Fecha inválida: " + fechaStr);
+  const [year, month, day] = partes;
+  fecha = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  if (isNaN(fecha.getTime())) throw new Error("Fecha inválida: " + fechaStr);
+  return fecha;
+};
+
+// Calcula días restantes hasta la fecha de vencimiento
 const calcularDiasDeVida = (fechaVencimiento: Date | string): number => {
-  const fechaVenc = new Date(fechaVencimiento);
+  const fechaVenc = typeof fechaVencimiento === "string" ? parseFechaLocal(fechaVencimiento) : fechaVencimiento;
   const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0); // Normalizamos a inicio del día
+  hoy.setHours(0, 0, 0, 0);
   const diffMs = fechaVenc.getTime() - hoy.getTime();
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 };
 
-// Función para determinar estado y texto
+// Determina estado y color según días de vida
 const determinarEstadoCaducidad = (diasDeVida: number) => {
   if (diasDeVida <= 0) {
-    return {
-      estado: 'CADUCADO',
-      texto: '(CADUCADO)',
-      color: 'red'
-    };
+    return { estado: "CADUCADO", texto: "(CADUCADO)", color: "red" };
   } else if (diasDeVida <= 60) {
-    return {
-      estado: 'POR_CADUCAR',
-      texto: `(POR CADUCAR - ${diasDeVida} días)`,
-      color: 'yellow'
-    };
+    return { estado: "POR_CADUCAR", texto: `(POR CADUCAR - ${diasDeVida} días)`, color: "yellow" };
   }
-  return {
-    estado: 'VIGENTE',
-    texto: `(VIGENTE - ${diasDeVida} días)`,
-    color: 'green'
-  };
+  return { estado: "VIGENTE", texto: `(VIGENTE - ${diasDeVida} días)`, color: "green" };
 };
 
-// Formateador de respuesta
+// Formatea la respuesta del químico
 const formatQuimicoResponse = (quimico: any) => {
   const diasDeVida = quimico.diasDeVida ?? calcularDiasDeVida(quimico.fechaVencimiento);
   const { estado, texto, color } = determinarEstadoCaducidad(diasDeVida);
@@ -63,13 +71,11 @@ const formatQuimicoResponse = (quimico: any) => {
     unidad: quimico.unidadMedidaId,
     reportadoPor: quimico.usuarioReportado?.nombre,
     rolReportado: quimico.usuarioReportado?.rol,
-    ubicacionTexto: quimico.ubicacion 
-      ? `Rack ${quimico.ubicacion.rack}, Pos. ${quimico.ubicacion.posicion}`
-      : "Sin ubicación"
+    ubicacionTexto: quimico.ubicacion ? `Rack ${quimico.ubicacion.rack}, Pos. ${quimico.ubicacion.posicion}` : "Sin ubicación",
   };
 };
 
-// Validación de payload
+// Valida payload
 const validateQuimicoPayload = (body: any): string[] => {
   const errors: string[] = [];
   const requiredFields: Record<keyof QuimicoPayload, string> = {
@@ -99,38 +105,26 @@ const validateQuimicoPayload = (body: any): string[] => {
   return errors;
 };
 
-// POST - Crear nuevo químico
+// POST - Crear químico
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const validationErrors = validateQuimicoPayload(body);
-    
     if (validationErrors.length > 0) {
-      return NextResponse.json(
-        { error: "Error de validación", details: validationErrors },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Error de validación", details: validationErrors }, { status: 400 });
     }
 
-    const fechaIngreso = new Date(body.fechaIngreso);
-    const fechaVencimiento = new Date(body.fechaVencimiento);
+    const fechaIngreso = parseFechaLocal(body.fechaIngreso);
+    const fechaVencimiento = parseFechaLocal(body.fechaVencimiento);
     const diasDeVida = calcularDiasDeVida(fechaVencimiento);
 
     // Verificar duplicados
     const existeMismoLote = await db.quimicos.findFirst({
-      where: {
-        codigo: Number(body.codigo),
-        noLote: body.noLote,
-      },
+      where: { codigo: Number(body.codigo), noLote: body.noLote },
     });
-
     if (existeMismoLote) {
       return NextResponse.json(
-        {
-          error: "Registro duplicado",
-          message: "Ya existe un registro con este código y número de lote",
-          existingId: existeMismoLote.id,
-        },
+        { error: "Registro duplicado", message: "Ya existe un registro con este código y lote", existingId: existeMismoLote.id },
         { status: 409 }
       );
     }
@@ -160,47 +154,28 @@ export async function POST(request: Request) {
       },
       include: {
         ubicacion: true,
-        usuarioReportado: {
-          select: {
-            nombre: true,
-            rol: true,
-          },
-        },
+        usuarioReportado: { select: { nombre: true, rol: true } },
       },
     });
 
-    // Registrar en historial
+    // Registrar historial
     await db.historial_movimientos.create({
       data: {
         codigoRefaccion: nuevoQuimico.codigo,
         descripcion: nuevoQuimico.descripcion,
         noParte: nuevoQuimico.noLote,
         movimiento: Movimiento.NUEVO_INGRESO,
-        cantidad: nuevoQuimico.cantidad||0,
+        cantidad: nuevoQuimico.cantidad || 0,
         existenciaFisicaDespues: nuevoQuimico.existenciaFisica,
         reportadoPorId: nuevoQuimico.reportadoPorId,
         fechaMovimiento: new Date(),
       },
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: formatQuimicoResponse(nuevoQuimico),
-        message: "Químico registrado correctamente",
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, data: formatQuimicoResponse(nuevoQuimico), message: "Químico registrado correctamente" }, { status: 201 });
   } catch (error: any) {
     console.error("Error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Error interno del servidor",
-        details: error.message || "Error desconocido",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Error interno del servidor", details: error.message || "Error desconocido" }, { status: 500 });
   }
 }
 
@@ -211,48 +186,20 @@ export async function GET(request: Request) {
     const codigo = searchParams.get("codigo");
     const noLote = searchParams.get("noLote");
 
-    // Búsqueda específica por código y lote
     if (codigo && noLote) {
       const quimico = await db.quimicos.findFirst({
-        where: {
-          codigo: Number(codigo),
-          noLote,
-        },
-        include: {
-          ubicacion: true,
-          usuarioReportado: {
-            select: {
-              nombre: true,
-              rol: true,
-            },
-          },
-        },
+        where: { codigo: Number(codigo), noLote },
+        include: { ubicacion: true, usuarioReportado: { select: { nombre: true, rol: true } } },
       });
-
-      if (!quimico) {
-        return NextResponse.json(
-          { error: "No encontrado", message: "No existe un químico con ese código y lote" },
-          { status: 404 }
-        );
-      }
-
+      if (!quimico) return NextResponse.json({ error: "No encontrado", message: "No existe un químico con ese código y lote" }, { status: 404 });
       return NextResponse.json(formatQuimicoResponse(quimico));
     }
 
-    // Listado general
     const limit = Number(searchParams.get("limit")) || undefined;
     const offset = Number(searchParams.get("offset")) || 0;
 
     const quimicos = await db.quimicos.findMany({
-      include: {
-        ubicacion: true,
-        usuarioReportado: {
-          select: {
-            nombre: true,
-            rol: true,
-          },
-        },
-      },
+      include: { ubicacion: true, usuarioReportado: { select: { nombre: true, rol: true } } },
       orderBy: { codigo: "asc" },
       take: limit,
       skip: offset,
@@ -261,14 +208,7 @@ export async function GET(request: Request) {
     return NextResponse.json(quimicos.map(formatQuimicoResponse));
   } catch (error: any) {
     console.error("Error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Error al obtener químicos",
-        details: error.message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Error al obtener químicos", details: error.message }, { status: 500 });
   }
 }
 
@@ -279,57 +219,27 @@ export async function DELETE(request: NextRequest) {
     let codigo = searchParams.get("codigo");
     let noLote = searchParams.get("noLote");
 
-    // Opción para recibir parámetros por body
     if ((!codigo || !noLote) && request.method === "DELETE") {
       try {
         const body = await request.json();
         codigo = body.codigo;
         noLote = body.noLote;
-      } catch (e) {
-        console.log("No se pudo parsear el body");
-      }
+      } catch {}
     }
 
-    // Validación
     if (!codigo || !noLote) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Parámetros inválidos",
-          message: "Se requieren código y número de lote",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Parámetros inválidos", message: "Se requieren código y número de lote" }, { status: 400 });
     }
 
-    // Buscar químico
     const quimicoExistente = await db.quimicos.findFirst({
-      where: {
-        codigo: Number(codigo),
-        noLote,
-      },
-      include: {
-        usuarioReportado: {
-          select: {
-            id: true,
-            nombre: true,
-          },
-        },
-      },
+      where: { codigo: Number(codigo), noLote },
+      include: { usuarioReportado: { select: { id: true, nombre: true } } },
     });
 
     if (!quimicoExistente) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "No encontrado",
-          message: `No existe un químico con código ${codigo} y lote ${noLote}`,
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "No encontrado", message: `No existe un químico con código ${codigo} y lote ${noLote}` }, { status: 404 });
     }
 
-    // Registrar en historial antes de eliminar
     await db.historial_movimientos.create({
       data: {
         codigoRefaccion: quimicoExistente.codigo,
@@ -343,34 +253,15 @@ export async function DELETE(request: NextRequest) {
       },
     });
 
-    // Eliminar
-    await db.quimicos.delete({
-      where: { id: quimicoExistente.id },
-    });
+    await db.quimicos.delete({ where: { id: quimicoExistente.id } });
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Químico eliminado correctamente",
-        data: {
-          id: quimicoExistente.id,
-          codigo: quimicoExistente.codigo,
-          noLote: quimicoExistente.noLote,
-          descripcion: quimicoExistente.descripcion,
-        },
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      message: "Químico eliminado correctamente",
+      data: { id: quimicoExistente.id, codigo: quimicoExistente.codigo, noLote: quimicoExistente.noLote, descripcion: quimicoExistente.descripcion },
+    }, { status: 200 });
   } catch (error: any) {
     console.error("Error al eliminar:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Error interno",
-        message: "Ocurrió un error al procesar la solicitud",
-        details: error.message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Error interno", message: "Ocurrió un error al procesar la solicitud", details: error.message }, { status: 500 });
   }
 }

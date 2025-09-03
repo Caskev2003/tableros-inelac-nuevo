@@ -1,6 +1,6 @@
-import { auth } from "../../../../../auth";
+import { auth } from "../../../../../../auth";
 import { redirect } from "next/navigation";
-import DashboardQuimicos from "./components/DashboardQuimicos/DashboardQuimicos";
+import PaginateDashboard from "../components/paginateDashboard/PaginateDashboard";
 
 export default async function page() {
 
@@ -12,9 +12,8 @@ export default async function page() {
 
   return (
     <div className="relative bg-[#2b2b2b] min-h-screen overflow-hidden">
-      
-      <DashboardQuimicos/>
-      </div>
+      <PaginateDashboard/>
+    </div>
 
   );
 }
