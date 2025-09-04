@@ -2,9 +2,8 @@
 
 import { signIn } from "../auth"
 import { signInSchema } from "../src/lib/zod"
-import { AuthError } from "next-auth"
 import { z } from "zod"
-import { db } from "@/lib/db" // importante si no lo tienes
+import { db } from "@/lib/db"
 
 export const login = async (values: z.infer<typeof signInSchema>) => {
   const validatedFields = signInSchema.safeParse(values)
@@ -39,13 +38,18 @@ export const login = async (values: z.infer<typeof signInSchema>) => {
         return { error: "Rol desconocido" }
     }
   } catch (error) {
-    if (error instanceof AuthError) {
-      switch (error.type) {
+    if (error instanceof Error && error.name === "AuthError") {
+      // Manejo específico de errores de autenticación
+      const authError = error as { type?: string }
+      switch (authError.type) {
         case "CredentialsSignin":
           return { error: "Credenciales inválidas!" }
         default:
           return { error: "Error desconocido" }
       }
     }
+    
+    // Manejo de otros tipos de errores
+    return { error: "Ocurrió un error inesperado" }
   }
 }
