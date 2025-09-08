@@ -1,6 +1,5 @@
 "use client"
 import { cn } from '@/lib/utils'
-import { BellRing } from 'lucide-react'
 import React from 'react'
 import { itemsNavbar } from '@/data/itemsNavbar'
 import Link from 'next/link'

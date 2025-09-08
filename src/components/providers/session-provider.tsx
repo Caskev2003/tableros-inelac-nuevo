@@ -1,12 +1,15 @@
-"use client";
+// src/components/providers/session-provider.tsx
+"use client"
+import { SessionProvider } from "next-auth/react"
+import type { ReactNode } from "react"
+import type { Session as AuthCoreSession } from "@auth/core/types"
 
-import { SessionProvider } from "next-auth/react";
-import { ReactNode } from "react";
-
-interface Props {
-  children: ReactNode;
-}
-
-export function AuthSessionProvider({ children }: Props) {
-  return <SessionProvider>{children}</SessionProvider>;
+export function AuthSessionProvider({
+  children,
+  session,
+}: {
+  children: ReactNode
+  session?: AuthCoreSession | null
+}) {
+  return <SessionProvider session={session}>{children}</SessionProvider>
 }

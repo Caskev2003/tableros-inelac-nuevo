@@ -1,6 +1,5 @@
 import { Refacciones } from './components/Refacciones'
 import { Quimicos } from './components/Quimicos'
-import { Navbar } from "@/components/shared/Navbar";
 import { auth } from "../../../../auth";
 import { redirect } from "next/navigation";
 import { ButtonRegresar } from './components/ButtonRegresar';
@@ -16,7 +15,6 @@ export default async function Page() {
 
   return (
     <div className="relative bg-[#2b2b2b] min-h-screen overflow-hidden">
-      <Navbar />
 
       {/* Contenedor para centrar el título y los componentes en pantallas grandes */}
       <div className="mt-10 md:mt-28 lg:mt-42 mb-10 px-4">

@@ -4,7 +4,7 @@ import {
     SheetTrigger,
   } from "@/components/ui/sheet"
 
-import { BellRing, Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import { itemsNavbar } from "@/data/itemsNavbar";
 import Link from "next/link";
 import { Logo } from "@/components/shared/Logo";
