@@ -285,7 +285,7 @@ export function TablaRefacciones({
                 <td className="p-2">{item.cantidadSalida}</td>
                 <td className="p-2">{item.proveedores}</td>
                 <td className="p-2">
-                  Rack {item.ubicacion?.rack}, Fila {item.ubicacion?.fila}, Pos. {item.ubicacion?.posicion}
+                  Rack {item.ubicacion?.rack}, Columna {item.ubicacion?.fila}
                 </td>
                 <td className="p-2">{item.usuarioReportado?.nombre || `ID ${item.reportadoPorId}`}</td>
                 <td className="p-2">{new Date(item.fechaIngreso).toLocaleDateString()}</td>

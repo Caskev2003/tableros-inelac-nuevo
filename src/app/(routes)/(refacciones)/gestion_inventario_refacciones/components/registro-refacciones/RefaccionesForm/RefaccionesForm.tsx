@@ -14,6 +14,14 @@ import { Input } from "@/components/ui/input"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
 type FormValues = z.infer<typeof refaccionSchema>
 
 interface Props {
@@ -26,59 +34,42 @@ export function RefaccionesForm({ onSuccess }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(refaccionSchema),
     defaultValues: {
-      codigo: undefined, // Cambiado de 0 a undefined
+      codigo: undefined,
       descripcion: "",
       noParte: "",
       proveedores: "",
       fechaIngreso: "",
       unidadMedidaId: "PZ",
-      ubicacionId: undefined, // Cambiado de 0 a undefined
-      cantidad: undefined, // Cambiado de 0 a undefined
-      existenciaSistema: undefined, // Cambiado de 0 a undefined
-      reportadoPorId: 0, // Este campo se llenará automáticamente
+      ubicacionId: undefined,
+      cantidad: undefined,
+      existenciaSistema: undefined,
+      reportadoPorId: 0,
     }
   })
 
-  const [ubicaciones, setUbicaciones] = useState([])
+  const [ubicaciones, setUbicaciones] = useState<any[]>([])
 
-  useEffect(() => {
-    const fetchUbicaciones = async () => {
-      try {
-        const res = await axios.get("/api/ubicaciones/get")
-        setUbicaciones(res.data)
-        console.log("Ubicaciones cargadas:", res.data)
-      } catch (error) {
-        console.error("Error al cargar ubicaciones:", error)
-      }
+  const cargarUbicaciones = async () => {
+    try {
+      const res = await axios.get("/api/ubicaciones/get")
+      setUbicaciones(res.data)
+    } catch (error) {
+      console.error("Error al cargar ubicaciones:", error)
     }
+  }
 
-    fetchUbicaciones()
-  }, [])
+  useEffect(() => { cargarUbicaciones() }, [])
 
   useEffect(() => {
     const userId = Number(session?.user?.id)
-    const userName = session?.user?.name || "Usuario no disponible"
-    const userIdWithName = `${userId} - ${userName}`
-
-    console.log("👤 ID del usuario logueado:", userId)
-
-    if (!isNaN(userId)) {
-      form.setValue("reportadoPorId", userId)
-    }
-  }, [session?.user?.id, session?.user?.name, form])
+    if (!isNaN(userId)) form.setValue("reportadoPorId", userId)
+  }, [session?.user?.id, form])
 
   const onSubmit = async (values: FormValues) => {
-    const payload = {
-      ...values,
-      movimiento: "NUEVO_INGRESO"
-    }
-
-    console.log("Enviando refacción:", payload)
-
+    const payload = { ...values, movimiento: "NUEVO_INGRESO" }
     try {
-      const res = await axios.post("/api/refacciones", payload)
+      await axios.post("/api/refacciones", payload)
       toast({ title: "Refacción registrada correctamente" })
-      console.log("Registro exitoso:", res.data)
       onSuccess?.()
     } catch (error: any) {
       console.error("Error al registrar:", error)
@@ -90,12 +81,42 @@ export function RefaccionesForm({ onSuccess }: Props) {
     }
   }
 
+  // ===== Modal "Agregar ubicación" =====
+  const [openUbic, setOpenUbic] = useState(false)
+  const [formUbic, setFormUbic] = useState({ rack: "", posicion: "", fila: "" })
+
+  const handleChangeUbic = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormUbic({ ...formUbic, [e.target.name]: e.target.value })
+  }
+
+  const handleSubmitUbic = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const res = await fetch("/api/ubicaciones", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formUbic),
+    })
+
+    if (res.ok) {
+      const creada = await res.json()
+      toast({ title: "Ubicación registrada", description: "Ubicación agregada correctamente." })
+      setFormUbic({ rack: "", posicion: "", fila: "" })
+      setOpenUbic(false)
+      await cargarUbicaciones()
+      if (creada?.id) form.setValue("ubicacionId", Number(creada.id))
+    } else {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo guardar la ubicación." })
+    }
+  }
+  // =====================================
+
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
+        {/* Fila 1 y 2 */}
         {[["codigo", "Código"], ["descripcion", "Descripción"], ["noParte", "No. Parte"], ["proveedores", "Proveedor"], ["cantidad", "Cantidad"]]
           .map(([name, label]) => (
             <FormField
@@ -106,20 +127,19 @@ export function RefaccionesForm({ onSuccess }: Props) {
                 <FormItem>
                   <FormLabel className="text-white">{label}</FormLabel>
                   <FormControl>
-                    <Input 
-                      {...field} 
+                    <Input
+                      {...field}
                       type={name === "codigo" || name === "cantidad" ? "number" : "text"}
-                      value={field.value ?? ''} // Mostrar cadena vacía si es undefined
+                      value={field.value ?? ""}
                       onChange={(e) => {
-                        // Para campos numéricos, convertir a número o undefined
                         if (name === "codigo" || name === "cantidad") {
-                          const value = e.target.value;
-                          field.onChange(value === '' ? undefined : Number(value));
+                          const value = e.target.value
+                          field.onChange(value === "" ? undefined : Number(value))
                         } else {
-                          field.onChange(e.target.value);
+                          field.onChange(e.target.value)
                         }
                       }}
-                      className="text-black bg-white w-full rounded-md px-3 py-2" 
+                      className="text-black bg-white w-full h-10 rounded-md px-3"
                     />
                   </FormControl>
                   <FormMessage />
@@ -135,13 +155,14 @@ export function RefaccionesForm({ onSuccess }: Props) {
             <FormItem>
               <FormLabel className="text-white">Fecha de Ingreso</FormLabel>
               <FormControl>
-                <Input type="date" {...field} className="text-black bg-white w-full rounded-md px-3 py-2" />
+                <Input type="date" {...field} className="text-black bg-white w-full h-10 rounded-md px-3" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Fila 3 */}
         <FormField
           control={form.control}
           name="existenciaSistema"
@@ -149,15 +170,15 @@ export function RefaccionesForm({ onSuccess }: Props) {
             <FormItem>
               <FormLabel className="text-white">Existencia en sistema</FormLabel>
               <FormControl>
-                <Input 
-                  type="number" 
-                  {...field} 
-                  value={field.value ?? ''} // Mostrar cadena vacía si es undefined
+                <Input
+                  type="number"
+                  {...field}
+                  value={field.value ?? ""}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    field.onChange(value === '' ? undefined : Number(value));
+                    const value = e.target.value
+                    field.onChange(value === "" ? undefined : Number(value))
                   }}
-                  className="text-black bg-white w-full rounded-md px-3 py-2" 
+                  className="text-black bg-white w-full h-10 rounded-md px-3"
                 />
               </FormControl>
               <FormMessage />
@@ -172,7 +193,10 @@ export function RefaccionesForm({ onSuccess }: Props) {
             <FormItem>
               <FormLabel className="text-white">Unidad de Medida</FormLabel>
               <FormControl>
-                <select {...field} className="text-black bg-white w-full rounded-md p-2 border">
+                <select
+                  {...field}
+                  className="text-black bg-white w-full h-10 rounded-md p-2 border"
+                >
                   <option value="PZ">Pz</option>
                   <option value="KG">Kg</option>
                   <option value="LTS">Lts</option>
@@ -191,19 +215,19 @@ export function RefaccionesForm({ onSuccess }: Props) {
             <FormItem>
               <FormLabel className="text-white">Ubicación</FormLabel>
               <FormControl>
-                <select 
-                  {...field} 
-                  value={field.value ?? ''} // Mostrar cadena vacía si es undefined
+                <select
+                  {...field}
+                  value={field.value ?? ""}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    field.onChange(value === '' ? undefined : Number(value));
+                    const value = e.target.value
+                    field.onChange(value === "" ? undefined : Number(value))
                   }}
-                  className="text-black bg-white w-full rounded-md p-2 border"
+                  className="text-black bg-white w-full h-10 rounded-md p-2 border"
                 >
                   <option value="">Selecciona una ubicación</option>
                   {ubicaciones.map((ubi: any) => (
                     <option key={ubi.id} value={ubi.id}>
-                      Rack {ubi.rack} - Fila {ubi.fila} - Posición {ubi.posicion}
+                      Rack {ubi.rack} - Columna {ubi.fila} 
                     </option>
                   ))}
                 </select>
@@ -213,7 +237,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
           )}
         />
 
-        {/* Campo oculto de debug (mostrar ID y nombre del usuario) */}
+        {/* ID Usuario Logueado — AHORA justo debajo, alineado en la primera columna */}
         <FormField
           control={form.control}
           name="reportadoPorId"
@@ -225,7 +249,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
                   {...field}
                   readOnly
                   value={session?.user?.id ? `${session?.user?.id} - ${session?.user?.name}` : ""}
-                  className="text-black bg-zinc-500"
+                  className="text-black bg-zinc-500 h-10"
                 />
               </FormControl>
               <FormMessage />
@@ -233,9 +257,65 @@ export function RefaccionesForm({ onSuccess }: Props) {
           )}
         />
 
+        {/* Botón Agregar ubicación en su PROPIA FILA, bajo la columna 3 (no afecta alineación) */}
+        <div className="col-span-1 sm:col-span-1 lg:col-start-3 flex justify-end">
+          <Dialog open={openUbic} onOpenChange={setOpenUbic}>
+            <DialogTrigger asChild>
+              <Button className="mt-1 bg-[#1e3a5f] text-white hover:bg-green-600 h-10 px-4 rounded-full text-sm w-full sm:w-fit">
+                Agregar ubicación
+              </Button>
+            </DialogTrigger>
+
+            <DialogContent className="sm:max-w-md bg-[#2b2b2b]">
+              <DialogHeader>
+                <DialogTitle>Registrar nueva ubicación</DialogTitle>
+              </DialogHeader>
+
+              <form onSubmit={handleSubmitUbic} className="space-y-4 mt-2">
+                <Input
+                  className="bg-white text-black h-10"
+                  type="number"
+                  name="rack"
+                  value={formUbic.rack}
+                  onChange={handleChangeUbic}
+                  placeholder="Rack"
+                  required
+                />
+                <Input
+                  className="bg-white text-black h-10"
+                  type="text"
+                  name="posicion"
+                  value={formUbic.posicion}
+                  onChange={handleChangeUbic}
+                  placeholder="Fila (Poner 00 si no tiene)"
+                  required
+                />
+                <Input
+                  className="bg-white text-black h-10"
+                  type="text"
+                  name="fila"
+                  value={formUbic.fila}
+                  onChange={handleChangeUbic}
+                  placeholder="Columna"
+                  required
+                />
+
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    className="bg-[#1e3a5f] text-white hover:bg-green-600 h-10 px-10 rounded-full w-full sm:w-auto"
+                  >
+                    Agregar
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         {/* Botón registrar */}
-        <div className="lg:col-span-3 flex justify-center mt-4">
-          <Button type="submit" className="bg-[#1e3a5f] text-white hover:bg-green-600 h-10 px-10 rounded-full w-full sm:w-auto">
+        <div className="lg:col-span-3 flex justify-center mt-2">
+          <Button type="submit" className="bg-[#1e3a5f] text-white hover:bg-green-600 h-10 px-10 rounded-full">
             Registrar refacción
           </Button>
         </div>
