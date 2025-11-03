@@ -21,6 +21,9 @@ model usuario {
   movimientosReportados historial_movimientos[] @relation("UsuarioReportadoHistorial")
   reportesL3            refacciones_l3[]        @relation("UsuarioReportadoRefacciones")
   quimicosReportados    quimicos[]              @relation("UsuarioReportadoQuimicos")
+
+  passwordResetToken   String?
+passwordResetExpires DateTime?
 }
 
 model refacciones_l3 {
