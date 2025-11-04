@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import axios from "axios"
 import { toast } from "@/hooks/use-toast"
+import ExportHistorialModal from "../ExportHistorialModal/ExportHistorialModal"
 
 interface Movimiento {
   id: number
@@ -150,8 +151,18 @@ export function TablaRefaccionesHistorial({
   const start = totalLocal === 0 ? 0 : (page - 1) * pageSize + 1
   const end = Math.min(page * pageSize, totalLocal)
 
+const [openExport, setOpenExport] = useState(false);
+
+
   return (
     <div className="overflow-x-auto mt-6">
+      <button
+  onClick={() => setOpenExport(true)}
+  className= "justify-center bg-blue-500 text-white px-4 py-2 rounded-2xl hover:bg-blue-400 transition duration-300"
+>
+  Crear Reporte
+</button>
+
       {/* Barra de paginación arriba con elipsis */}
       <div className="mb-3 flex items-center justify-between">
         <div className="text-sm text-blue-700 font-medium">
@@ -264,6 +275,8 @@ export function TablaRefaccionesHistorial({
           </tbody>
         </table>
       </div>
+      <ExportHistorialModal open={openExport} onClose={() => setOpenExport(false)} />
+
     </div>
   )
 }
