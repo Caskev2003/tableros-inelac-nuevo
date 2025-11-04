@@ -31,10 +31,10 @@ export async function sendResetPasswordEmail({ correo, token }: Props) {
     html: `
       <div style="max-width: 600px; margin: 0 auto; padding: 30px; background-color: #0D0D0D; color: white; border-radius: 10px; font-family: Arial, sans-serif;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="https://i.pinimg.com/736x/35/86/46/3586463f2883b249899615c0ab0eda63.jpg" alt="Logo PlayMovies" style="width: 80px;">
+          <img src="https://i.pinimg.com/736x/d1/19/ca/d119ca6ffd0f944953445daa11e9fdf2.jpg" alt="Logo INELAC" style="width: 80px;">
         </div>
         <h2 style="color: #00FFC6; text-align: center;">¿Olvidaste tu contraseña?</h2>
-        <p style="text-align: center; margin-top: 20px;">Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>PlayMovies</strong>.</p>
+        <p style="text-align: center; margin-top: 20px;">Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>Tableros de Control Almacen</strong>.</p>
         <p style="text-align: center;">Haz clic en el botón para crear una nueva contraseña:</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${resetUrl}" style="background-color: #00FFC6; color: black; text-decoration: none; padding: 14px 30px; border-radius: 8px; font-weight: bold; font-size: 16px;">
