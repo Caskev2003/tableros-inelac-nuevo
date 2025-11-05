@@ -23,7 +23,7 @@ model usuario {
   quimicosReportados    quimicos[]              @relation("UsuarioReportadoQuimicos")
 
   passwordResetToken   String?
-passwordResetExpires DateTime?
+  passwordResetExpires DateTime?
 }
 
 model refacciones_l3 {
@@ -36,7 +36,6 @@ model refacciones_l3 {
   proveedores       String        @db.VarChar(80)
   cantidadEntrada   Int?
   cantidadSalida    Int?
-  cantidad          Int?
   fechaIngreso      DateTime
   movimiento        Movimiento
   unidadMedidaId    Unidad_medida
@@ -51,7 +50,7 @@ model refacciones_l3 {
 
 model historial_movimientos {
   id                      Int        @id @default(autoincrement())
-  codigoRefaccion         Int
+  codigo                  Int
   descripcion             String
   noParte                 String
   movimiento              Movimiento
@@ -59,6 +58,14 @@ model historial_movimientos {
   existenciaFisicaDespues Int
   reportadoPorId          Int
   fechaMovimiento         DateTime   @default(now())
+
+  // 🔹 Conservamos la columna original (VARCHAR) pero la renombramos solo en Prisma.
+  //    En la BD sigue llamándose `almacen` y sigue siendo VARCHAR(100).
+  almacenText             String     @db.VarChar(100) @map("almacen")
+
+  // 🔹 Nueva columna ENUM, opcional al inicio para no fallar al crearla.
+  almacenEnum             Almacen?   @map("almacen_enum")
+
   usuarioReportado        usuario    @relation("UsuarioReportadoHistorial", fields: [reportadoPorId], references: [id])
 
   @@index([reportadoPorId], map: "historial_movimientos_reportadoPorId_fkey")
@@ -95,6 +102,11 @@ enum Unidad_medida {
   MTS
 }
 
+enum Almacen {
+  REFACCIONES
+  QUIMICOS
+}
+
 model notificacion_refaccion {
   id            Int       @id @default(autoincrement())
   codigo        Int
@@ -113,7 +125,6 @@ model quimicos {
   proveedores       String        @db.VarChar(80)
   cantidadEntrada   Int?
   cantidadSalida    Int?
-  cantidad          Int?
   fechaIngreso      DateTime
   fechaVencimiento  DateTime
   diasDeVida        Int?

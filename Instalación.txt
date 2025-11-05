@@ -1,0 +1,12 @@
+En powershell hacer lo siguiente:
+instalar dependencias
+
+npm install --legacy-peer-devs
+
+para bd
+1- npx prisma generate
+2- npx prisma db push
+
+dependencias independientes a lo demas
+para excel
+1- npm i exceljs

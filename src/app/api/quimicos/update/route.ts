@@ -1,8 +1,7 @@
 // src/app/api/quimicos/update/route.ts
-
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { Movimiento, Unidad_medida } from "@prisma/client";
+import { Movimiento, Unidad_medida, Prisma } from "@prisma/client";
 
 interface QuimicoPayload {
   codigo: number;
@@ -11,25 +10,23 @@ interface QuimicoPayload {
   proveedores: string;
   fechaIngreso: string;
   fechaVencimiento: string;
-  unidadMedidaId: Unidad_medida;
+  unidadMedidaId: Unidad_medida | string;
   ubicacionId: number;
   existenciaFisica: number;
   existenciaSistema: number;
   retenidos: number;
   reportadoPorId: number;
-  productoLiberado: string;
+  productoLiberado: string; // "SI" | "NO"
   diasDeVida?: number;
 }
 
-// Convierte cualquier fecha ISO o YYYY-MM-DD a Date UTC mediodía
+// Convierte ISO/“YYYY-MM-DD” a Date UTC 12:00
 const parseFechaLocal = (fechaStr: string): Date => {
   if (!fechaStr) throw new Error("Fecha vacía");
-
   let fecha = new Date(fechaStr);
   if (!isNaN(fecha.getTime())) {
     return new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate(), 12, 0, 0));
   }
-
   const partes = fechaStr.split("-").map(Number);
   if (partes.length !== 3) throw new Error("Fecha inválida: " + fechaStr);
   const [year, month, day] = partes;
@@ -38,90 +35,115 @@ const parseFechaLocal = (fechaStr: string): Date => {
   return fecha;
 };
 
+// Días de vida = vencimiento - HOY
+const calcDiasDeVida = (fechaVenc: Date) => {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const diff = fechaVenc.getTime() - hoy.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
 export async function PUT(request: Request) {
   try {
     const body: QuimicoPayload = await request.json();
 
-    // Validación básica
-    if (!body.codigo || body.codigo < 1) return NextResponse.json({ success: false, error: "Código inválido" }, { status: 400 });
-    if (!body.noLote) return NextResponse.json({ success: false, error: "Número de lote requerido" }, { status: 400 });
+    // Validaciones mínimas
+    if (!body.codigo || body.codigo < 1)
+      return NextResponse.json({ success: false, error: "Código inválido" }, { status: 400 });
+    if (!body.noLote)
+      return NextResponse.json({ success: false, error: "Número de lote requerido" }, { status: 400 });
 
     const quimicoExistente = await db.quimicos.findFirst({
       where: { codigo: body.codigo, noLote: body.noLote },
     });
-    if (!quimicoExistente) return NextResponse.json({ success: false, error: "Químico no encontrado" }, { status: 404 });
+    if (!quimicoExistente)
+      return NextResponse.json({ success: false, error: "Químico no encontrado" }, { status: 404 });
 
-    // Parseo de fechas
+    // Fechas
     const fechaIngreso = parseFechaLocal(body.fechaIngreso);
     const fechaVencimiento = parseFechaLocal(body.fechaVencimiento);
-
     if (fechaVencimiento <= fechaIngreso)
-      return NextResponse.json({ success: false, error: "La fecha de vencimiento debe ser posterior a la de ingreso" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "La fecha de vencimiento debe ser posterior a la de ingreso" },
+        { status: 400 }
+      );
 
-    // Validación de unidad
+    // Unidad de medida (normaliza string → enum)
     const unidadesValidas = Object.values(Unidad_medida);
-    if (!body.unidadMedidaId || !unidadesValidas.includes(body.unidadMedidaId))
-      return NextResponse.json({ success: false, error: `Unidad de medida inválida: ${unidadesValidas.join(", ")}` }, { status: 400 });
+    const unidadNorm = (body.unidadMedidaId ?? "").toString().trim().toUpperCase() as Unidad_medida;
+    if (!unidadesValidas.includes(unidadNorm))
+      return NextResponse.json(
+        { success: false, error: `Unidad de medida inválida. Válidas: ${unidadesValidas.join(", ")}` },
+        { status: 400 }
+      );
 
-    // Validación de ubicación
+    // Ubicación
     if (!body.ubicacionId || body.ubicacionId < 1)
       return NextResponse.json({ success: false, error: "Ubicación inválida" }, { status: 400 });
 
-    // Validación de existencias
-    if (body.existenciaFisica < 0 || body.existenciaFisica > 9999)
+    // Existencias
+    if (!Number.isFinite(body.existenciaFisica) || body.existenciaFisica < 0)
       return NextResponse.json({ success: false, error: "Existencia física inválida" }, { status: 400 });
-    if (body.existenciaSistema < 0 || body.existenciaSistema > 9999)
+    if (!Number.isFinite(body.existenciaSistema) || body.existenciaSistema < 0)
       return NextResponse.json({ success: false, error: "Existencia en sistema inválida" }, { status: 400 });
 
-    // Validación de producto liberado
-    if (!["SI", "NO"].includes(body.productoLiberado))
+    // Producto liberado
+    const liberadoNorm = String(body.productoLiberado).toUpperCase();
+    if (!["SI", "NO"].includes(liberadoNorm))
       return NextResponse.json({ success: false, error: "Producto liberado debe ser 'SI' o 'NO'" }, { status: 400 });
 
-    // Validación de retenidos
-    if (body.retenidos < 0 || body.retenidos > 9999)
+    // Retenidos
+    if (!Number.isFinite(body.retenidos) || body.retenidos < 0)
       return NextResponse.json({ success: false, error: "Retenidos inválidos" }, { status: 400 });
 
-    // Calcular días de vida
-    const diasDeVida = body.diasDeVida || Math.ceil((fechaVencimiento.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24));
+    // Cálculos
+    const diasDeVida = body.diasDeVida ?? calcDiasDeVida(fechaVencimiento);
     const diferencias = Math.abs(body.existenciaFisica - body.existenciaSistema);
 
-    // Actualizar químico
-    const quimicoActualizado = await db.quimicos.update({
-      where: { id: quimicoExistente.id },
-      data: {
-        descripcion: body.descripcion,
-        proveedores: body.proveedores,
-        fechaIngreso,
-        fechaVencimiento,
-        diasDeVida,
-        existenciaFisica: body.existenciaFisica,
-        existenciaSistema: body.existenciaSistema,
-        diferencias,
-        retenidos: body.retenidos,
-        productoLiberado: body.productoLiberado,
-        unidadMedidaId: body.unidadMedidaId,
-        ubicacion: { connect: { id: body.ubicacionId } },
-        usuarioReportado: { connect: { id: body.reportadoPorId } },
-        movimiento: "EDITADO" as Movimiento,
-      },
-      include: {
-        ubicacion: true,
-        usuarioReportado: { select: { nombre: true, rol: true } },
-      },
-    });
+    // Actualización + historial en transacción
+    const quimicoActualizado = await db.$transaction(async (tx) => {
+      const q = await tx.quimicos.update({
+        where: { id: quimicoExistente.id },
+        data: {
+          descripcion: body.descripcion,
+          proveedores: body.proveedores,
+          fechaIngreso,
+          fechaVencimiento,
+          diasDeVida,
+          existenciaFisica: body.existenciaFisica,
+          existenciaSistema: body.existenciaSistema,
+          diferencias,
+          retenidos: body.retenidos,
+          productoLiberado: liberadoNorm,
+          unidadMedidaId: unidadNorm,
+          ubicacion: { connect: { id: body.ubicacionId } },
+          usuarioReportado: { connect: { id: body.reportadoPorId } },
+          movimiento: Movimiento.EDITADO,
+        },
+        include: {
+          ubicacion: true,
+          usuarioReportado: { select: { nombre: true, rol: true } },
+        },
+      });
 
-    // Registrar historial
-    await db.historial_movimientos.create({
-      data: {
-        codigoRefaccion: quimicoActualizado.codigo,
-        descripcion: `Edición: ${quimicoActualizado.descripcion}`,
-        noParte: quimicoActualizado.noLote,
-        movimiento: "EDITADO" as Movimiento,
-        cantidad: quimicoActualizado.existenciaFisica,
-        existenciaFisicaDespues: quimicoActualizado.existenciaFisica,
-        reportadoPorId: quimicoActualizado.reportadoPorId,
-        fechaMovimiento: new Date(),
-      },
+      // Historial (usa campos correctos del schema)
+      await tx.historial_movimientos.create({
+        data: {
+          codigo: q.codigo,
+          descripcion: `Edición: ${q.descripcion}`,
+          noParte: q.noLote,
+          movimiento: Movimiento.EDITADO,
+          cantidad: q.existenciaFisica,
+          existenciaFisicaDespues: q.existenciaFisica,
+          reportadoPorId: q.reportadoPorId,
+          fechaMovimiento: new Date(),
+          // marca de almacén para químicos
+          almacenEnum: "QUIMICOS",
+          almacenText: "Almacén de Químicos",
+        },
+      } as any);
+
+      return q;
     });
 
     return NextResponse.json({
@@ -131,6 +153,6 @@ export async function PUT(request: Request) {
     });
   } catch (error: any) {
     console.error("Error en PUT /api/quimicos/update:", error);
-    return NextResponse.json({ success: false, error: error.message || "Error interno" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error?.message || "Error interno" }, { status: 500 });
   }
 }
