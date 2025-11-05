@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const resultados = await db.historial_movimientos.findMany({
       where: {
-        codigoRefaccion: {
+        codigo: {
           gte: codigoInt,
         },
       },
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     });
 
     const filtrados = resultados.filter((item) =>
-      item.codigoRefaccion.toString().startsWith(query)
+      item.codigo.toString().startsWith(query)
     );
 
     return NextResponse.json(filtrados);

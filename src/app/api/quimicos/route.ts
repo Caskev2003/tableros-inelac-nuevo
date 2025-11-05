@@ -1,17 +1,53 @@
 // src/app/api/quimicos/route.ts
 import { NextResponse, NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { Prisma } from "@prisma/client"
 
-// Parseo flexible: YYYY-MM-DD, DD/MM/YYYY o ISO
-function parseFechaFlexible(s: string) {
-  if (!s) return NaN
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(`${s}T12:00:00`).getTime()
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
-    const [dd, mm, yyyy] = s.split("/")
-    return new Date(`${yyyy}-${mm}-${dd}T12:00:00`).getTime()
+// Parseo flexible anclado a MEDIODÍA UTC para evitar desfases de zona
+function parseFechaFlexible(input: unknown): number {
+  if (!input) return NaN
+
+  // Si ya es Date válida: ancla a 12:00 UTC del mismo día
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    return Date.UTC(
+      input.getUTCFullYear(),
+      input.getUTCMonth(),
+      input.getUTCDate(),
+      12, 0, 0, 0
+    )
   }
-  return new Date(s).getTime()
+
+  const s = String(input).trim()
+  const toUtcNoon = (y: number, m: number, d: number) =>
+    Date.UTC(y, m - 1, d, 12, 0, 0, 0)
+
+  // DD-MM-YYYY
+  let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (m) return toUtcNoon(+m[3], +m[2], +m[1])
+
+  // DD/MM/YYYY
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m) return toUtcNoon(+m[3], +m[2], +m[1])
+
+  // YYYY-MM-DD
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (m) return toUtcNoon(+m[1], +m[2], +m[3])
+
+  // YYYY/MM/DD
+  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
+  if (m) return toUtcNoon(+m[1], +m[2], +m[3])
+
+  // Último recurso: ISO genérico → normaliza a 12:00 UTC del día
+  const d = new Date(s)
+  if (!isNaN(d.getTime())) {
+    return Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      12, 0, 0, 0
+    )
+  }
+
+  return NaN
 }
 
 function calcDiasDeVida(fechaVenc: Date) {
@@ -81,7 +117,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Fechas
+    // Fechas (ancladas a 12:00 UTC)
     const msIngreso = parseFechaFlexible(String(fechaIngreso))
     if (!Number.isFinite(msIngreso)) {
       return NextResponse.json({ error: "Fecha de ingreso inválida" }, { status: 400 })
@@ -151,9 +187,9 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(
-  { success: true, message: "Químico registrado correctamente", data: creado },
-  { status: 200 }
-)
+      { success: true, message: "Químico registrado correctamente", data: creado },
+      { status: 200 }
+    )
   } catch (err: any) {
     console.error("❌ Error al registrar químico:", err)
     return NextResponse.json({ error: "INTERNAL ERROR", detail: err?.message }, { status: 500 })

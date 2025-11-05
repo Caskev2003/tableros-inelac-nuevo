@@ -1,7 +1,7 @@
 // src/app/api/quimicos/update/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { Movimiento, Unidad_medida, Prisma } from "@prisma/client";
+import { Movimiento, Unidad_medida } from "@prisma/client";
 
 interface QuimicoPayload {
   codigo: number;

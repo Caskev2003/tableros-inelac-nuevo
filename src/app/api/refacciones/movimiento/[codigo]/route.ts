@@ -9,7 +9,7 @@ export async function PUT(req: Request, { params }: { params: { codigo: string }
     return new NextResponse("No autorizado", { status: 401 });
   }
 
-  const codigo = parseInt(params.codigo);
+  const codigo = parseInt(params.codigo, 10);
   const { tipo, cantidad, nuevaExistencia, nuevasDiferencias } = await req.json();
 
   if (!["ENTRADA", "SALIDA"].includes(tipo)) {
@@ -24,24 +24,27 @@ export async function PUT(req: Request, { params }: { params: { codigo: string }
     cantidadSalida: tipo === "SALIDA" ? cantidad : 0,
   };
 
+  // Actualiza refacción
   const updated = await db.refacciones_l3.update({
     where: { codigo },
     data,
   });
 
+  // Inserta historial (usa 'codigo' y 'almacenText' requeridos en tu schema)
   await db.historial_movimientos.create({
     data: {
-      codigoRefaccion: updated.codigo,
+      codigo: updated.codigo,
       descripcion: updated.descripcion,
       noParte: updated.noParte,
-      movimiento: tipo,
+      movimiento: tipo, // enum Movimiento
       cantidad,
       existenciaFisicaDespues: nuevaExistencia,
       reportadoPorId: Number(session.user.id),
+      almacenText: "REFACCIONES",       
     },
   });
 
-  // ✅ Crear notificación si la existencia llegó a 0
+  // Notificación si llegó a 0
   if (nuevaExistencia === 0) {
     await db.notificacion_refaccion.create({
       data: {
