@@ -7,7 +7,7 @@ export default function AuthLayout({
     <div className="relative min-h-screen">
       {/* Fondo */}
       <Image
-        src="/inelac_fondo_login.jpg"  // viene de /public
+        src="/iconos/inelac_fondo_login.jpg"  // viene de /public
         alt=""
         fill
         priority

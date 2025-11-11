@@ -8,7 +8,7 @@ export default function ForgotLayout({
     <div className="relative min-h-screen">
       {/* Fondo */}
       <Image
-        src="/inelac_fondo_login.jpg" // desde /public
+        src="/iconos/inelac_fondo_login.jpg" // desde /public
         alt=""
         fill
         priority
