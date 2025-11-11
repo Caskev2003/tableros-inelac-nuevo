@@ -11,6 +11,7 @@ export default function AuthLayout({
         alt=""
         fill
         priority
+        unoptimized
         style={{ objectFit: 'cover' }}
         sizes="100vw"
       />
