@@ -1,71 +1,75 @@
-import NextAuth from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import CredentialsProvider from "next-auth/providers/credentials"
-import { db } from "@/lib/db"
-import bcrypt from "bcryptjs"
-import type { User as NextAuthUser } from "next-auth"
+// src/auth.ts
+import NextAuth, { type NextAuthConfig } from "next-auth";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import Credentials from "next-auth/providers/credentials";
+import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
+import type { JWT } from "next-auth/jwt";
+import type { Session, User } from "next-auth";
 
-// Extendemos para incluir ID y rol
-interface ExtendedUser extends NextAuthUser {
-  id: string
-  rol: string
-}
+type AppUser = {
+  id: string;
+  rol: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+};
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+const config: NextAuthConfig = {
   adapter: PrismaAdapter(db),
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   providers: [
-    CredentialsProvider({
+    Credentials({
       name: "credentials",
       credentials: {
         correo: { label: "Correo", type: "text" },
         password: { label: "Contraseña", type: "password" },
       },
-      async authorize(credentials): Promise<ExtendedUser | null> {
-        const correo = credentials?.correo as string
-        const password = credentials?.password as string
+      // 👇 acepta el tipo que espera la lib: Partial<...> | undefined
+      async authorize(
+        credentials: Partial<Record<"correo" | "password", unknown>> | undefined
+      ): Promise<AppUser | null> {
+        const correo =
+          typeof credentials?.correo === "string" ? credentials.correo.trim() : "";
+        const password =
+          typeof credentials?.password === "string" ? credentials.password : "";
 
-        if (!correo || !password) return null
+        if (!correo || !password) return null;
 
-        const user = await db.usuario.findUnique({
-          where: { correo },
-        })
+        const user = await db.usuario.findUnique({ where: { correo } });
+        if (!user?.password) return null;
 
-        if (!user || !user.password) return null
-
-        const isValid = await bcrypt.compare(password, user.password)
-        if (!isValid) return null
+        const ok = await bcrypt.compare(password, String(user.password));
+        if (!ok) return null;
 
         return {
-          id: user.id.toString(),
+          id: String(user.id),
+          rol: user.rol,
           name: user.nombre ?? "",
           email: user.correo,
-          rol: user.rol,
-          imagen: user.imagen ?? "", // Asegúrate de que la URL de la imagen sea válida
-        }
+          image: user.imagen ?? null,
+        };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: JWT; user?: User | AppUser }) {
       if (user) {
-        token.id = user.id as string
-        token.rol = user.rol as string
-        token.imagen = user.imagen ?? ""  //  // Asegúrate de que la imagen esté siendo asignada
-        console.log('JWT token:', token) // Depura el token
+        (token as any).id = (user as AppUser).id;
+        (token as any).rol = (user as AppUser).rol;
+        (token as any).imagen = (user as AppUser).image ?? "";
       }
-      return token
+      return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user) {
-        session.user.id = token.id as string
-        session.user.rol = token.rol as string
-        session.user.image = token.imagen as string
-        console.log('Session:', session) // Depura la sesión
+        (session.user as any).id = (token as any).id as string;
+        (session.user as any).rol = (token as any).rol as string;
+        session.user.image = (token as any).imagen as string;
       }
-      return session
+      return session;
     },
   },
-})
+};
+
+export const { handlers, signIn, signOut, auth } = NextAuth(config);
