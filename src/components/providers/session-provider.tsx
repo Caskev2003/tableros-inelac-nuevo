@@ -4,12 +4,12 @@ import { SessionProvider as NextAuthSessionProvider } from "next-auth/react";
 import type { Session } from "next-auth";
 import type { ReactNode } from "react";
 
-export default function SessionProvider({
+export default function AuthSessionProvider({
   children,
   session,
 }: {
   children: ReactNode;
-  session?: Session | null; // puede venir undefined/null
+  session?: Session | null;
 }) {
   return (
     <NextAuthSessionProvider session={session ?? null}>
