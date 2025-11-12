@@ -295,7 +295,7 @@ export function TablaRefacciones({
         </button>
       </div>
 
-      {/* Controles de paginación con conteo de registros */}
+      {/* Controles de paginación con conteo de registros*/}
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
           {/* Etiqueta de conteo de registros */}

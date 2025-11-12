@@ -180,7 +180,7 @@ export function TablaQuimicos({
       onPageChange ? onPageChange(clamped) : setInternalPage(clamped)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalPages]) // recalcular sólo cuando cambia el total
+  }, [totalPages]) // recalcular el total
 
   const noHayResultados = (
     (busquedaCodigo.trim() && datosFiltradosCodigo?.length === 0) ||
