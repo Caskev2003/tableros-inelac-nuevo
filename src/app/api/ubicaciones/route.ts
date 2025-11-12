@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; // Prisma NO en Edge
 
 const ubicacionSchema = z.object({
   rack: z.coerce.number().int().min(1, "Rack debe ser >= 1"),
@@ -15,19 +16,24 @@ type UbicacionRow = { id: number; rack: number; posicion: string; fila: string }
 
 export async function GET() {
   try {
+    // ORDER BY: rack ASC, luego A/B/C/D/PISO, luego fila ASC
     const ubicaciones = await db.$queryRaw<UbicacionRow[]>`
       SELECT id, rack, posicion, fila
       FROM ubicacion
       WHERE rack BETWEEN 1 AND 26
       ORDER BY
         rack ASC,
-        FIELD(UPPER(posicion), 'A','B','C','D','PISO'),
-        /* si 'fila' es numérica en texto, ordénala como número */
-        CASE
-          WHEN fila REGEXP '^[0-9]+$' THEN CAST(fila AS UNSIGNED)
-          ELSE fila
-        END ASC
+        CASE UPPER(posicion)
+          WHEN 'A'   THEN 1
+          WHEN 'B'   THEN 2
+          WHEN 'C'   THEN 3
+          WHEN 'D'   THEN 4
+          WHEN 'PISO' THEN 5
+          ELSE 6
+        END,
+        fila ASC
     `;
+
     return NextResponse.json(ubicaciones);
   } catch (error) {
     console.error("Error al obtener ubicaciones:", error);
@@ -43,7 +49,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const parsed = ubicacionSchema.parse({
       rack: body?.rack,
-      posicion: String(body?.posicion || "").toUpperCase(), // normaliza
+      posicion: String(body?.posicion || "").toUpperCase(),
       fila: String(body?.fila || "").toUpperCase(),
     });
 
