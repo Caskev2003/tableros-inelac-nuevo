@@ -38,7 +38,7 @@ export function TablaRefacciones({
     useState<Pick<Refaccion, "codigo" | "descripcion"> | null>(null);
   const [ubicaciones, setUbicaciones] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 10; // <- paginación en 10
 
   const fetchRefacciones = async () => {
     try {
@@ -93,59 +93,50 @@ export function TablaRefacciones({
   }
 
   // Calcular datos paginados
+  const totalPages = Math.max(1, Math.ceil(datosAMostrar.length / itemsPerPage));
+
+  // Clamp si cambia el total para no quedar en página vacía
+  useEffect(() => {
+    const clamped = Math.max(1, Math.min(currentPage, totalPages));
+    if (clamped !== currentPage) setCurrentPage(clamped);
+  }, [totalPages, currentPage]);
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = datosAMostrar.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(datosAMostrar.length / itemsPerPage);
 
   const noHayResultados =
     (busquedaCodigo.trim() !== "" && datosFiltradosCodigo?.length === 0) ||
     (busquedaNoParte.trim() !== "" && datosFiltradosNoParte?.length === 0);
 
   const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
 
   const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const goToPage = (page: number) => setCurrentPage(page);
+
+  // -------- Paginación con "…" (ellipsis) --------
+  const buildPageList = (
+    tp: number,
+    cp: number
+  ): (number | "ellipsis")[] => {
+    if (tp <= 7) {
+      return Array.from({ length: tp }, (_, i) => i + 1);
     }
-  };
-
-  const goToPage = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  // Función para generar los números de página a mostrar
-  const getPageNumbers = () => {
-    const pages: number[] = [];
-    const maxVisiblePages = 5; // Máximo de números de página a mostrar
-
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      let startPage = Math.max(
-        currentPage - Math.floor(maxVisiblePages / 2),
-        1
-      );
-      let endPage = startPage + maxVisiblePages - 1;
-
-      if (endPage > totalPages) {
-        endPage = totalPages;
-        startPage = endPage - maxVisiblePages + 1;
-      }
-
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-      }
+    if (cp <= 4) {
+      return [1, 2, 3, 4, 5, "ellipsis", tp];
     }
-
-    return pages;
+    if (cp >= tp - 3) {
+      return [1, "ellipsis", tp - 4, tp - 3, tp - 2, tp - 1, tp];
+    }
+    return [1, "ellipsis", cp - 1, cp, cp + 1, "ellipsis", tp];
   };
+  const pageList = buildPageList(totalPages, currentPage);
+  // ----------------------------------------------
 
   const SemaforoExistencia = ({ valor }: { valor: number }) => {
     return (
@@ -304,8 +295,8 @@ export function TablaRefacciones({
         </button>
       </div>
 
-      {/* Controles de paginación mejorados con conteo de registros */}
-      {datosAMostrar.length > itemsPerPage && (
+      {/* Controles de paginación con conteo de registros */}
+      {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
           {/* Etiqueta de conteo de registros */}
           <div className="text-sm font-medium text-blue-600">
@@ -335,21 +326,27 @@ export function TablaRefacciones({
               ANTERIOR
             </button>
 
-            {/* Números de página interactivos */}
-            <div className="flex gap-1">
-              {getPageNumbers().map((page) => (
-                <button
-                  key={page}
-                  onClick={() => goToPage(page)}
-                  className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
-                    currentPage === page
-                      ? "text-white bg-gradient-to-r from-orange-500 to-orange-600 shadow-md transform scale-105"
-                      : "text-blue-700 bg-blue-100 hover:bg-blue-200"
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
+            {/* Números de página con "…" */}
+            <div className="flex gap-1 items-center">
+              {pageList.map((p, i) =>
+                p === "ellipsis" ? (
+                  <span key={`el-${i}`} className="px-2 text-blue-600 select-none">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p as number}
+                    onClick={() => goToPage(p as number)}
+                    className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
+                      currentPage === p
+                        ? "text-white bg-gradient-to-r from-orange-500 to-orange-600 shadow-md transform scale-105"
+                        : "text-blue-700 bg-blue-100 hover:bg-blue-200"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
             </div>
 
             <button
