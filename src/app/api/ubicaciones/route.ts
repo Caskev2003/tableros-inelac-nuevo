@@ -11,12 +11,23 @@ const ubicacionSchema = z.object({
   fila: z.string().trim().min(1),
 });
 
+type UbicacionRow = { id: number; rack: number; posicion: string; fila: string };
+
 export async function GET() {
   try {
-    const ubicaciones = await db.ubicacion.findMany({
-      orderBy: { id: "asc" },
-      select: { id: true, rack: true, posicion: true, fila: true },
-    });
+    const ubicaciones = await db.$queryRaw<UbicacionRow[]>`
+      SELECT id, rack, posicion, fila
+      FROM ubicacion
+      WHERE rack BETWEEN 1 AND 26
+      ORDER BY
+        rack ASC,
+        FIELD(UPPER(posicion), 'A','B','C','D','PISO'),
+        /* si 'fila' es numérica en texto, ordénala como número */
+        CASE
+          WHEN fila REGEXP '^[0-9]+$' THEN CAST(fila AS UNSIGNED)
+          ELSE fila
+        END ASC
+    `;
     return NextResponse.json(ubicaciones);
   } catch (error) {
     console.error("Error al obtener ubicaciones:", error);
@@ -32,8 +43,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const parsed = ubicacionSchema.parse({
       rack: body?.rack,
-      posicion: String(body?.posicion || "").toUpperCase(), // opcional: normalizar
-      fila: String(body?.fila || "").toUpperCase(),         // opcional: normalizar
+      posicion: String(body?.posicion || "").toUpperCase(), // normaliza
+      fila: String(body?.fila || "").toUpperCase(),
     });
 
     const nuevaUbicacion = await db.ubicacion.create({
@@ -41,7 +52,6 @@ export async function POST(request: Request) {
       select: { id: true, rack: true, posicion: true, fila: true },
     });
 
-    // 👇 Esto es lo que espera el modal para autoseleccionar
     return NextResponse.json(nuevaUbicacion, { status: 201 });
   } catch (error: any) {
     console.error("Error al crear ubicación:", error);
