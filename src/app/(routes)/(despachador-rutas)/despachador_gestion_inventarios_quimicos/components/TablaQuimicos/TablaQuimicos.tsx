@@ -71,15 +71,22 @@ export function TablaQuimicos({
   busquedaNoLote,
   currentPage = 1,
   onPageChange,
-  itemsPerPage = 20
+  itemsPerPage = 10 // ↓ ahora 10
 }: Props) {
   const [quimicos, setQuimicos] = useState<Quimico[]>([])
-  const [quimicoSeleccionado, setQuimicoSeleccionado] = useState<Pick<Quimico, "codigo" | "descripcion"> | null>(null)
   const [ubicaciones, setUbicaciones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Calcular datos paginados
-  const indexOfLastItem = currentPage * itemsPerPage
+  // --- Estado interno para paginación cuando el padre no controla ---
+  const [internalPage, setInternalPage] = useState<number>(currentPage)
+  // Mantener sincronía si el padre actualiza currentPage
+  useEffect(() => { setInternalPage(currentPage) }, [currentPage])
+
+  // page efectivo: controlado (prop) o no controlado (estado interno)
+  const page = onPageChange ? currentPage : internalPage
+
+  // Calcular datos paginados con la página efectiva
+  const indexOfLastItem = page * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
 
   const fetchQuimicos = async () => {
@@ -133,17 +140,26 @@ export function TablaQuimicos({
     quimicos
 
   const currentItems = datosAMostrar.slice(indexOfFirstItem, indexOfLastItem)
-  const totalPages = Math.max(1, Math.ceil(datosAMostrar.length / itemsPerPage)) // Asegura mínimo 1 página
+  const totalPages = Math.max(1, Math.ceil(datosAMostrar.length / itemsPerPage))
+
+  // Si cambian los datos y la página se sale de rango, clamp
+  useEffect(() => {
+    const clamped = Math.max(1, Math.min(page, totalPages))
+    if (clamped !== page) {
+      onPageChange ? onPageChange(clamped) : setInternalPage(clamped)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages]) // recalcular el total
 
   const noHayResultados = (
     (busquedaCodigo.trim() && datosFiltradosCodigo?.length === 0) ||
     (busquedaNoLote.trim() && datosFiltradosNoLote?.length === 0)
   )
 
-  const handlePageChange = (page: number) => {
-    if (onPageChange) {
-      onPageChange(Math.max(1, Math.min(page, totalPages))) // Limita entre 1 y totalPages
-    }
+  const handlePageChange = (newPage: number) => {
+    const clamped = Math.max(1, Math.min(newPage, totalPages))
+    if (onPageChange) onPageChange(clamped)
+    else setInternalPage(clamped)
   }
 
   const formatValue = (value: any, type?: 'date' | 'number') => {
@@ -152,6 +168,15 @@ export function TablaQuimicos({
     if (type === 'number') return Number(value).toLocaleString()
     return String(value)
   }
+
+  // ---- Paginación con "..." ----
+  const buildPageList = (tp: number, cp: number): (number | 'ellipsis')[] => {
+    if (tp <= 7) return Array.from({ length: tp }, (_, i) => i + 1)
+    if (cp <= 4) return [1, 2, 3, 4, 5, 'ellipsis', tp]
+    if (cp >= tp - 3) return [1, 'ellipsis', tp - 4, tp - 3, tp - 2, tp - 1, tp]
+    return [1, 'ellipsis', cp - 1, cp, cp + 1, 'ellipsis', tp]
+  }
+  const pageList = buildPageList(totalPages, page)
 
   return (
     <div className="overflow-x-auto mt-6">
@@ -168,10 +193,10 @@ export function TablaQuimicos({
         {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1}
               className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
-                currentPage === 1 
+                page === 1 
                   ? 'text-gray-400 bg-gray-700 cursor-not-allowed' 
                   : 'text-white bg-blue-600 hover:bg-blue-700 shadow-md'
               }`}
@@ -180,24 +205,24 @@ export function TablaQuimicos({
             </button>
             
             <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum
-                if (totalPages <= 5) {
-                  pageNum = i + 1
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i
-                } else {
-                  pageNum = currentPage - 2 + i
+              {pageList.map((p, i) => {
+                if (p === 'ellipsis') {
+                  return (
+                    <span
+                      key={`ellipsis-${i}`}
+                      className="px-2 text-blue-300 select-none"
+                    >
+                      …
+                    </span>
+                  )
                 }
-                
+                const pageNum = p as number
                 return (
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
                     className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
-                      currentPage === pageNum
+                      page === pageNum
                         ? 'text-white bg-orange-600 shadow-md transform scale-105'
                         : 'text-blue-300 bg-[#3a3a3a] hover:bg-[#4a4a4a]'
                     }`}
@@ -209,10 +234,10 @@ export function TablaQuimicos({
             </div>
             
             <button 
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page === totalPages}
               className={`px-3 py-1 text-sm rounded-md font-medium transition-all ${
-                currentPage === totalPages 
+                page === totalPages 
                   ? 'text-gray-400 bg-gray-700 cursor-not-allowed' 
                   : 'text-white bg-blue-600 hover:bg-blue-700 shadow-md'
               }`}
