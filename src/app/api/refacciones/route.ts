@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       select: { codigo: true },
     });
     if (yaExiste) {
-      return NextResponse.json({ error: "Duplicado: código ya existe" }, { status: 409 });
+      return NextResponse.json({ error: "Duplicado: código ya existen" }, { status: 409 });
     }
 
     const diferencias = Math.abs(parsedExistenciaFisica - parsedExistenciaSistema);
