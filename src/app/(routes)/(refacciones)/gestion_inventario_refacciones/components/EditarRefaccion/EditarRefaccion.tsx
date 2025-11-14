@@ -35,7 +35,7 @@ export function EditarRefaccion({ refaccion, ubicaciones, onSuccess }: Props) {
       fechaIngreso: "",
       unidadMedidaId: "PZ",
       ubicacionId: 0,
-      cantidad: 1,
+      cantidad: 0,
       existenciaSistema: 0,
       reportadoPorId: 0,
     }
