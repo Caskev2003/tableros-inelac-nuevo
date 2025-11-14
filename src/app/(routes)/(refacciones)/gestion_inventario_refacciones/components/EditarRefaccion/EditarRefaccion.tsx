@@ -161,7 +161,7 @@ export function EditarRefaccion({ refaccion, ubicaciones, onSuccess }: Props) {
                   <option value="">Selecciona una ubicación</option>
                   {ubicaciones.map((ubi: any) => (
                     <option key={ubi.id} value={ubi.id}>
-                      Rack {ubi.rack} - Fila {ubi.fila} - Pos {ubi.posicion}
+                      Rack {ubi.rack} - Columna {ubi.fila} 
                     </option>
                   ))}
                 </select>
