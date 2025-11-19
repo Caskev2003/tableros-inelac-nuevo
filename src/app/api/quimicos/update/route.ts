@@ -12,7 +12,7 @@ interface QuimicoPayload {
   fechaVencimiento: string;
   unidadMedidaId: Unidad_medida | string;
   ubicacionId: number;
-  existenciaFisica: number;
+  existenciaFisica: number;   // ← TOTAL física (disponible + retenidos)
   existenciaSistema: number;
   retenidos: number;
   reportadoPorId: number;
@@ -81,7 +81,7 @@ export async function PUT(request: Request) {
     if (!body.ubicacionId || body.ubicacionId < 1)
       return NextResponse.json({ success: false, error: "Ubicación inválida" }, { status: 400 });
 
-    // Existencias
+    // Existencias (valores totales recibidos)
     if (!Number.isFinite(body.existenciaFisica) || body.existenciaFisica < 0)
       return NextResponse.json({ success: false, error: "Existencia física inválida" }, { status: 400 });
     if (!Number.isFinite(body.existenciaSistema) || body.existenciaSistema < 0)
@@ -96,9 +96,26 @@ export async function PUT(request: Request) {
     if (!Number.isFinite(body.retenidos) || body.retenidos < 0)
       return NextResponse.json({ success: false, error: "Retenidos inválidos" }, { status: 400 });
 
+    // 🔹 LÓGICA NUEVA: interpretar existenciaFisica como TOTAL y restar retenidos
+    const totalFisico = body.existenciaFisica;
+    const totalRetenidos = body.retenidos;
+
+    if (totalRetenidos > totalFisico) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Los retenidos no pueden ser mayores que la existencia física total",
+        },
+        { status: 400 }
+      );
+    }
+
+    // existencia física disponible = total físico - retenidos
+    const existenciaFisicaDisponible = totalFisico - totalRetenidos;
+
     // Cálculos
     const diasDeVida = body.diasDeVida ?? calcDiasDeVida(fechaVencimiento);
-    const diferencias = Math.abs(body.existenciaFisica - body.existenciaSistema);
+    const diferencias = Math.abs(existenciaFisicaDisponible - body.existenciaSistema);
 
     // Actualización + historial en transacción
     const quimicoActualizado = await db.$transaction(async (tx) => {
@@ -110,10 +127,11 @@ export async function PUT(request: Request) {
           fechaIngreso,
           fechaVencimiento,
           diasDeVida,
-          existenciaFisica: body.existenciaFisica,
+          // 🔹 Guardamos la existencia física disponible, no el total
+          existenciaFisica: existenciaFisicaDisponible,
           existenciaSistema: body.existenciaSistema,
           diferencias,
-          retenidos: body.retenidos,
+          retenidos: totalRetenidos,
           productoLiberado: liberadoNorm,
           unidadMedidaId: unidadNorm,
           ubicacion: { connect: { id: body.ubicacionId } },
@@ -133,8 +151,9 @@ export async function PUT(request: Request) {
           descripcion: `Edición: ${q.descripcion}`,
           noParte: q.noLote,
           movimiento: Movimiento.EDITADO,
-          cantidad: q.existenciaFisica,
-          existenciaFisicaDespues: q.existenciaFisica,
+          // 🔹 Registramos la existencia física disponible después de la edición
+          cantidad: existenciaFisicaDisponible,
+          existenciaFisicaDespues: existenciaFisicaDisponible,
           reportadoPorId: q.reportadoPorId,
           fechaMovimiento: new Date(),
           // marca de almacén para químicos

@@ -5,6 +5,7 @@ import axios from "axios"
 import { toast } from "@/hooks/use-toast"
 import { FileSpreadsheet, Trash2 } from "lucide-react"
 import { Quimico } from "./TablaQuimicos.types"
+import { ModalRetenidosQuimico } from "../ModalRetenidosQuimico"
 import { ModalEditarQuimico } from "../ModalEditarQuimico"
 import {
   AlertDialog,
@@ -509,7 +510,18 @@ export function TablaQuimicos({
                 <td className="p-2">
                   <IndicadorCaducidad fechaVencimiento={item.fechaVencimiento} />
                 </td>
-                <td className="p-2">{formatValue(item.retenidos, 'number')}</td>
+                <td className="p-2">
+                  <div className="flex flex-col gap-1">
+                    <span>{formatValue(item.retenidos, 'number')}</span>
+                    {Number(item.retenidos || 0) > 0 && (
+                    <ModalRetenidosQuimico
+                    quimico={item}
+                    onSuccess={fetchQuimicos}
+                  />
+                    )}
+                  </div>
+                </td>
+
                 <td className="p-2">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                     item.productoLiberado === 'SI' 

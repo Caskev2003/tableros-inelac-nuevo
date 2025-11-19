@@ -88,10 +88,41 @@ export async function POST(request: Request) {
     const parsedReportadoPorId = Number(reportadoPorId)
     const parsedExistenciaSistema = Number(existenciaSistema)
 
-    // Si la UI manda "cantidad", úsala como existenciaFisica
-    const parsedExistenciaFisica = Number(
+    // Si la UI manda "cantidad", úsala como existenciaFisica TOTAL (incluye retenidos)
+    const parsedExistenciaFisicaTotal = Number(
       existenciaFisica ?? cantidad ?? NaN
     )
+
+    const parsedRetenidos = Number(retenidos) || 0
+
+    // Validación básica de retenidos vs existencia física total
+    if (parsedRetenidos < 0) {
+      return NextResponse.json(
+        { error: "Los retenidos no pueden ser negativos" },
+        { status: 400 }
+      )
+    }
+
+    if (!Number.isFinite(parsedExistenciaFisicaTotal)) {
+      return NextResponse.json(
+        { error: "existenciaFisica (o cantidad) inválida" },
+        { status: 400 }
+      )
+    }
+
+    if (parsedRetenidos > parsedExistenciaFisicaTotal) {
+      return NextResponse.json(
+        {
+          error:
+            "Los retenidos no pueden ser mayores que la existencia física total",
+        },
+        { status: 400 }
+      )
+    }
+
+    // 🔹 existencia física disponible = total - retenidos
+    const existenciaFisicaDisponible =
+      parsedExistenciaFisicaTotal - parsedRetenidos
 
     // Normaliza enum de unidad
     const unidadNorm = (unidadMedidaId ?? "").toString().trim().toUpperCase()
@@ -108,7 +139,7 @@ export async function POST(request: Request) {
     if (!Number.isFinite(parsedUbicacionId)) faltantes.push("ubicacionId")
     if (!Number.isFinite(parsedReportadoPorId)) faltantes.push("reportadoPorId")
     if (!Number.isFinite(parsedExistenciaSistema)) faltantes.push("existenciaSistema")
-    if (!Number.isFinite(parsedExistenciaFisica)) faltantes.push("existenciaFisica (o cantidad)")
+    if (!Number.isFinite(parsedExistenciaFisicaTotal)) faltantes.push("existenciaFisica (o cantidad)")
 
     if (faltantes.length) {
       return NextResponse.json(
@@ -142,7 +173,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const diferencias = Math.abs(parsedExistenciaFisica - parsedExistenciaSistema)
+    const diferencias = Math.abs(existenciaFisicaDisponible - parsedExistenciaSistema)
     const diasDeVida = calcDiasDeVida(parsedFechaVenc)
 
     const creado = await db.$transaction(async (tx) => {
@@ -151,16 +182,17 @@ export async function POST(request: Request) {
           codigo: parsedCodigo,
           descripcion,
           noLote,
-          existenciaFisica: parsedExistenciaFisica,
+          existenciaFisica: existenciaFisicaDisponible,
           existenciaSistema: parsedExistenciaSistema,
           diferencias,
           proveedores,
-          cantidadEntrada: parsedExistenciaFisica,
+          // Lo que realmente entra “disponible” es la existencia física sin retenidos
+          cantidadEntrada: existenciaFisicaDisponible,
           cantidadSalida: 0,
           fechaIngreso: parsedFechaIngreso,
           fechaVencimiento: parsedFechaVenc,
           diasDeVida,
-          retenidos: Number(retenidos) || 0,
+          retenidos: parsedRetenidos,
           productoLiberado: String(productoLiberado).toUpperCase() === "SI" ? "SI" : "NO",
           movimiento: "NUEVO_INGRESO",
           unidadMedidaId: unidadNorm as any,
@@ -175,8 +207,9 @@ export async function POST(request: Request) {
           descripcion: nuevo.descripcion,
           noParte: nuevo.noLote,
           movimiento: "NUEVO_INGRESO",
-          cantidad: parsedExistenciaFisica,
-          existenciaFisicaDespues: parsedExistenciaFisica,
+          // Solo lo disponible se considera en el historial
+          cantidad: existenciaFisicaDisponible,
+          existenciaFisicaDespues: existenciaFisicaDisponible,
           reportadoPorId: parsedReportadoPorId,
           almacenEnum: "QUIMICOS",
           almacenText: "Almacén de Químicos",
@@ -290,5 +323,172 @@ export async function DELETE(request: NextRequest) {
   } catch (err: any) {
     console.error("❌ Error DELETE /quimicos:", err)
     return NextResponse.json({ error: err?.message || "Error" }, { status: 500 })
+  }
+}
+
+/* -------------------------------- PATCH (Retenidos) ---------------------- */
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const {
+      accion,
+      codigo,
+      noLote,
+      devolverAStock,   // piezas de retenidos que regresan a stock
+      salidaDefinitiva, // piezas de retenidos que salen definitivamente
+      reportadoPorId,
+    } = body ?? {}
+
+    if (accion !== "procesar-retenidos") {
+      return NextResponse.json(
+        { error: "Acción no soportada en PATCH /quimicos" },
+        { status: 400 }
+      )
+    }
+
+    const parsedCodigo = Number(codigo)
+    const dev = Number(devolverAStock) || 0
+    const sal = Number(salidaDefinitiva) || 0
+    const parsedReportadoPorId = Number(reportadoPorId)
+
+    if (!Number.isFinite(parsedCodigo) || !noLote) {
+      return NextResponse.json(
+        { error: "Se requieren código y número de lote válidos" },
+        { status: 400 }
+      )
+    }
+
+    if (dev < 0 || sal < 0) {
+      return NextResponse.json(
+        { error: "Los valores no pueden ser negativos" },
+        { status: 400 }
+      )
+    }
+
+    if (!Number.isFinite(parsedReportadoPorId)) {
+      return NextResponse.json(
+        { error: "reportadoPorId inválido" },
+        { status: 400 }
+      )
+    }
+
+    const quimico = await db.quimicos.findFirst({
+      where: { codigo: parsedCodigo, noLote },
+    })
+
+    if (!quimico) {
+      return NextResponse.json(
+        { error: "Químico no encontrado" },
+        { status: 404 }
+      )
+    }
+
+    const totalRetenidos = Number(quimico.retenidos || 0)
+    const totalProcesar = dev + sal
+
+    if (totalProcesar === 0) {
+      return NextResponse.json(
+        { error: "Debes procesar al menos una pieza retenida" },
+        { status: 400 }
+      )
+    }
+
+    if (totalProcesar > totalRetenidos) {
+      return NextResponse.json(
+        {
+          error:
+            "La suma de piezas que regresan a stock y salen no puede superar a los retenidos actuales",
+        },
+        { status: 400 }
+      )
+    }
+
+    const nuevoRetenidos = totalRetenidos - totalProcesar
+
+    // 🔹 Lo que regresa a stock SÍ suma a existencia física
+    const nuevaExistenciaFisica = quimico.existenciaFisica + dev
+
+    // 🔹 Las salidas definitivas SÍ restan existencia en sistema
+    const nuevaExistenciaSistema = quimico.existenciaSistema - sal
+
+    if (nuevaExistenciaSistema < 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No es posible registrar la salida: existencia en sistema quedaría negativa",
+        },
+        { status: 400 }
+      )
+    }
+
+    const nuevasDiferencias = Math.abs(
+      nuevaExistenciaFisica - nuevaExistenciaSistema
+    )
+
+    const nuevaCantidadEntrada = (quimico.cantidadEntrada || 0) + dev
+    const nuevaCantidadSalida = (quimico.cantidadSalida || 0) + sal
+
+    const actualizado = await db.$transaction(async (tx) => {
+      const qActualizado = await tx.quimicos.update({
+        where: { id: quimico.id },
+        data: {
+          existenciaFisica: nuevaExistenciaFisica,
+          existenciaSistema: nuevaExistenciaSistema,
+          diferencias: nuevasDiferencias,
+          retenidos: nuevoRetenidos,
+          cantidadEntrada: nuevaCantidadEntrada,
+          cantidadSalida: nuevaCantidadSalida,
+        },
+      })
+
+      // 🟢 Historial ENTRADA (regresan a stock)
+      if (dev > 0) {
+        await tx.historial_movimientos.create({
+          data: {
+            codigo: quimico.codigo,
+            descripcion: quimico.descripcion,
+            noParte: quimico.noLote,
+            movimiento: "ENTRADA",
+            cantidad: dev,
+            existenciaFisicaDespues: nuevaExistenciaFisica,
+            reportadoPorId: parsedReportadoPorId,
+            almacenEnum: "QUIMICOS",
+            almacenText: "Almacén de Químicos",
+          },
+        } as any)
+      }
+
+      // 🔴 Historial SALIDA (se descartan / consumen retenidos)
+      if (sal > 0) {
+        await tx.historial_movimientos.create({
+          data: {
+            codigo: quimico.codigo,
+            descripcion: quimico.descripcion,
+            noParte: quimico.noLote,
+            movimiento: "SALIDA",
+            cantidad: sal,
+            // La existencia física disponible ya es la final (incluye lo que regresó a stock)
+            existenciaFisicaDespues: nuevaExistenciaFisica,
+            reportadoPorId: parsedReportadoPorId,
+            almacenEnum: "QUIMICOS",
+            almacenText: "Almacén de Químicos",
+          },
+        } as any)
+      }
+
+      return qActualizado
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: "Retenidos procesados correctamente",
+      data: actualizado,
+    })
+  } catch (err: any) {
+    console.error("❌ Error PATCH /quimicos:", err)
+    return NextResponse.json(
+      { error: "INTERNAL ERROR", detail: err?.message },
+      { status: 500 }
+    )
   }
 }
