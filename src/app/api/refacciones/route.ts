@@ -121,7 +121,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { success: true, message: "Refacción registrada", data: creado },
-      { status: 201 }
+      { status: 200 }
     );
   } catch (err: any) {
     console.error("❌ POST /refacciones:", err);

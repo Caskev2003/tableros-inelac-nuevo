@@ -142,7 +142,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
                       className="text-black bg-white w-full h-10 rounded-md px-3"
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-red-600"/>
                 </FormItem>
               )}
             />
@@ -157,7 +157,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
               <FormControl>
                 <Input type="date" {...field} className="text-black bg-white w-full h-10 rounded-md px-3" />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -181,7 +181,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full h-10 rounded-md px-3"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -203,7 +203,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
                   <option value="MTS">Mts</option>
                 </select>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -232,7 +232,7 @@ export function RefaccionesForm({ onSuccess }: Props) {
                   ))}
                 </select>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />

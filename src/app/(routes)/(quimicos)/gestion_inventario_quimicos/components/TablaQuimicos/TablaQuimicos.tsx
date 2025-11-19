@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import axios from "axios"
 import { toast } from "@/hooks/use-toast"
-import { Trash2 } from "lucide-react"
+import { FileSpreadsheet, Trash2 } from "lucide-react"
 import { Quimico } from "./TablaQuimicos.types"
 import { ModalEditarQuimico } from "../ModalEditarQuimico"
 import {
@@ -209,8 +209,159 @@ export function TablaQuimicos({
   }
   const pageList = buildPageList(totalPages, page)
 
+  // ======= EXPORTAR A EXCEL (exceljs) =======
+    const [exporting, setExporting] = useState(false);
+  
+    const exportarExcel = async () => {
+      if (!datosAMostrar?.length) return;
+      setExporting(true);
+      try {
+        const ExcelJS = await import("exceljs");
+  
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet("Quimicos");
+  
+        const headers = [
+          "Código",
+          "Descripción",
+          "No. Lote",
+          "Exist. Fís.",
+          "Exist. Sist.",
+          "Diferencias",
+          "Unidad",
+          "Entrada",
+          "Salida",
+          "Proveedor",
+          "Ubicación",
+          "Reportado por",
+          "Ingreso",
+          "Vencimiento",
+          "Estado",
+          "Retenidos",
+          "Liberado",
+        ];
+  
+        const data = datosAMostrar.map((r) => {
+          const ubicacion = r.ubicacion
+            ? `Rack ${r.ubicacion.rack ?? ""}, Columna ${r.ubicacion.fila ?? ""}`.trim()
+            : "";
+          const reportado =
+            r.usuarioReportado?.nombre ??
+            (r.reportadoPorId ? `ID ${r.reportadoPorId}` : "");
+          const ingreso = r.fechaIngreso
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? new Date(r.fechaIngreso as any).toLocaleDateString()
+            : "";
+            const vencimiento = r.fechaVencimiento
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? new Date(r.fechaVencimiento as any).toLocaleDateString()
+            : "";
+  
+          return [
+            r.codigo,
+            r.descripcion ?? "",
+            r.noLote ?? "",
+            Number(r.existenciaFisica ?? 0),
+            Number(r.existenciaSistema ?? 0),
+            Number(r.diferencias ?? 0),
+            r.unidadMedidaId ?? "",
+            r.cantidadEntrada ?? "",
+            r.cantidadSalida ?? "",
+            r.proveedores ?? "",
+            ubicacion,
+            reportado,
+            ingreso,
+            vencimiento,
+            r.diasDeVida,
+            r.retenidos,
+            r.productoLiberado,
+          ];
+        });
+  
+        ws.addTable({
+          name: "TablaQuimicos",
+          ref: "A1",
+          headerRow: true,
+          totalsRow: false,
+          style: { theme: "TableStyleMedium9", showRowStripes: true },
+          columns: headers.map((h) => ({ name: h })),
+          rows: data,
+        });
+  
+        ws.views = [{ state: "frozen", ySplit: 1 }];
+  
+        // Autowidth
+        for (let c = 1; c <= headers.length; c++) {
+          let max = headers[c - 1].length;
+          for (const row of data) {
+            const len = String(row[c - 1] ?? "").length;
+            if (len > max) max = len;
+          }
+          ws.getColumn(c).width = Math.min(Math.max(max + 2, 10), 50);
+        }
+  
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+  
+        const dt = new Date();
+        const stamp = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}-${String(dt.getDate()).padStart(2, "0")}__${String(
+          dt.getHours()
+        ).padStart(2, "0")}${String(dt.getMinutes()).padStart(2, "0")}`;
+        const name = `Historial-Quimicos-${stamp}.xlsx`;
+  
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error(e);
+        toast({
+          title: "No se pudo generar el Excel",
+          description: "Verifica la instalación de exceljs.",
+          variant: "destructive",
+        });
+      } finally {
+        setExporting(false);
+      }
+    };
+    // ==========================================
+
   return (
     <div className="overflow-x-auto mt-6">
+      {/* Toolbar superior con botón de exportación */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-lg font-bold text white">Quimicos</h3>
+
+        <button
+          onClick={exportarExcel}
+          disabled={exporting || !datosAMostrar.length}
+          className={`group inline-flex items-center gap-2 rounded-xl px-4 py-2 font-semibold shadow-md transition ${
+            exporting || !datosAMostrar.length
+              ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+              : "bg-gradient-to-r from-emerald-500 via-green-600 to-emerald-700 text-white hover:brightness-110 active:scale-[0.98]"
+          }`}
+          title={
+            !datosAMostrar.length
+              ? "No hay datos para exportar"
+              : "Exportar a Excel"
+          }
+        >
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/20 backdrop-blur-sm">
+            <FileSpreadsheet className="h-4 w-4" />
+          </span>
+          {exporting ? "Exportando..." : "Exportar Excel"}
+        </button>
+      </div>
+
       {/* Controles de paginación - SIEMPRE VISIBLES */}
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4 bg-[#2b2b2b] p-3 rounded-lg">
         {/* Conteo de registros */}

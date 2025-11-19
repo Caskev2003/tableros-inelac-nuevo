@@ -176,7 +176,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -194,7 +194,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -212,7 +212,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -230,7 +230,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -250,7 +250,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -270,7 +270,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -289,7 +289,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -308,7 +308,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -328,7 +328,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-white w-full rounded-md px-3 py-2"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -352,7 +352,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   ))}
                 </select>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -386,7 +386,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   )}
                 </select>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -407,7 +407,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   <option value="SI">SI</option>
                 </select>
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
@@ -427,7 +427,7 @@ export function QuimicosForm({ onSuccess }: Props) {
                   className="text-black bg-zinc-500"
                 />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-red-600"/>
             </FormItem>
           )}
         />
