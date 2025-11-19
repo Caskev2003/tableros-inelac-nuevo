@@ -1,4 +1,4 @@
-import { Movimiento, Unidad_medida } from "@prisma/client"
+import {Unidad_medida } from "@prisma/client"
 
 export interface Quimico {
   codigo: number;
@@ -22,4 +22,8 @@ export interface Quimico {
   diasDeVida?: number;
   retenidos: number;
   productoLiberado: string;
+  usuarioReportado?: {
+    nombre?: string
+  }
+  reportadoPorId: number
 }
