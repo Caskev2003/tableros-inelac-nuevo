@@ -135,7 +135,6 @@ export async function PUT(request: Request) {
           productoLiberado: liberadoNorm,
           unidadMedidaId: unidadNorm,
           ubicacion: { connect: { id: body.ubicacionId } },
-          usuarioReportado: { connect: { id: body.reportadoPorId } },
           movimiento: Movimiento.EDITADO,
         },
         include: {
