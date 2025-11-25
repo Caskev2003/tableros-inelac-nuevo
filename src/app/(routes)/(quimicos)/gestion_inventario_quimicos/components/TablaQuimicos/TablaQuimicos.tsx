@@ -503,7 +503,7 @@ export function TablaQuimicos({
                 <td className="p-2">{item.unidadMedidaId}</td>
                 <td className="p-2">{item.proveedores}</td>
                 <td className="p-2">
-                  {item.ubicacion ? `Rack ${item.ubicacion.rack}, Pos. ${item.ubicacion.posicion}` : '-'}
+                  {item.ubicacion ? `Rack ${item.ubicacion.rack}, columna ${item.ubicacion.fila}` : '-'}
                 </td>
                 <td className="p-2">{formatValue(item.fechaIngreso, 'date')}</td>
                 <td className="p-2">{formatValue(item.fechaVencimiento, 'date')}</td>
