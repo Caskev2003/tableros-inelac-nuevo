@@ -48,11 +48,11 @@ export const quimicoSchema = z.object({
     
   existenciaFisica: z.coerce.number()
     .min(0, "La existencia debe ser 0 o más")
-    .max(1999999, "La existencia no puede ser mayor a 199999"),
+    .max(199999, "La existencia no puede ser mayor a 199999"),
     
   existenciaSistema: z.coerce.number()
     .min(0, "La existencia no puede ser negativa")
-    .max(1999999, "La existencia no puede ser mayor a 1999999"),
+    .max(199999, "La existencia no puede ser mayor a 199999"),
     
   movimiento: z.nativeEnum(Movimiento, {
     errorMap: () => ({ message: "Tipo de movimiento inválido" })
@@ -65,16 +65,16 @@ export const quimicoSchema = z.object({
   retenidos: z.coerce.number()
     .int("Debe ser un número entero")
     .min(0, "No puede ser negativo")
-    .max(1999999, "No puede ser mayor a 1999999")
+    .max(199999, "No puede ser mayor a 199999")
     .default(0),
     
   diasDeVida: z.coerce.number()
     .int("Debe ser un número entero")
-    .min(0, "No puede ser negativo")
+    .min(-3650, "No puede ser menor a -10 años")
     .max(3650, "No puede ser mayor a 10 años (3650 días)")
     .optional()
     .nullable(),
-    
+
 }).refine(data => {
   // Validación cruzada: fecha vencimiento > fecha ingreso
   if (!data.fechaIngreso || !data.fechaVencimiento) return true

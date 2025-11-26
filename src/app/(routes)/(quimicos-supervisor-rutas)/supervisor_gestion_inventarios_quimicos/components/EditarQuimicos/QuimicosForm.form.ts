@@ -70,11 +70,11 @@ export const quimicoSchema = z.object({
     
   diasDeVida: z.coerce.number()
     .int("Debe ser un número entero")
-    .min(0, "No puede ser negativo")
+    .min(-3650, "No puede ser menor a -10 años")
     .max(3650, "No puede ser mayor a 10 años (3650 días)")
     .optional()
     .nullable(),
-    
+
 }).refine(data => {
   // Validación cruzada: fecha vencimiento > fecha ingreso
   if (!data.fechaIngreso || !data.fechaVencimiento) return true
