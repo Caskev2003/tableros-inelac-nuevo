@@ -135,7 +135,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
         existenciaSistema: Number(values.existenciaSistema),
         retenidos: Number(values.retenidos) || 0,
         productoLiberado: values.productoLiberado,
-        diasDeVida: values.diasDeVida ? Number(values.diasDeVida) : undefined,
+        
         reportadoPorId: Number(values.reportadoPorId),
         movimiento: "EDITADO" as Movimiento
       }
