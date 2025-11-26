@@ -3,12 +3,18 @@
 
 export default function GlobalError({
   error,
-  reset,
+  reset, // lo dejamos para cumplir la firma, aunque no lo usamos
 }: {
   error: Error & { digest?: string }
   reset: () => void
 }) {
   console.error("❌ Error global en la app:", error)
+
+  const handleReload = () => {
+    if (typeof window !== "undefined") {
+      window.location.reload()
+    }
+  }
 
   return (
     <html>
@@ -18,9 +24,8 @@ export default function GlobalError({
             Ocurrió un error en la aplicación
           </h2>
 
-          {/* Mensaje técnico (opcional) */}
           <p className="text-sm text-gray-300 mb-4">
-            {error.message || "No se pudo completar la operación."}
+            Ha ocurrido un error inesperado. Por favor, recarga la página e intenta nuevamente.
           </p>
 
           <p className="text-xs text-gray-400 mb-6">
@@ -29,10 +34,10 @@ export default function GlobalError({
 
           <div className="flex justify-end gap-2">
             <button
-              onClick={() => reset()}
+              onClick={handleReload}
               className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-sm"
             >
-              Volver a intentar
+              Regresar
             </button>
           </div>
         </div>
