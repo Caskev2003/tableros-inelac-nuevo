@@ -1,3 +1,4 @@
+// src/app/(lo-que-corresponda)/EditarQuimicos.tsx
 "use client"
 
 import { useForm } from "react-hook-form"
@@ -75,6 +76,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
     }
   })
 
+  // Cuando cambia el quimico en el modal
   useEffect(() => {
     if (quimico) {
       form.reset({
@@ -98,6 +100,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
     }
   }, [quimico, form])
 
+  // Sobrescribe el id de usuario con el de la sesión (último que edita)
   useEffect(() => {
     if (session?.user?.id) {
       form.setValue("reportadoPorId", Number(session.user.id))
@@ -165,7 +168,11 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        {/* ID oculto */}
         <FormField
           control={form.control}
           name="id"
@@ -178,6 +185,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Código (solo lectura) */}
         <FormField
           control={form.control}
           name="codigo"
@@ -196,6 +204,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Descripción */}
         <FormField
           control={form.control}
           name="descripcion"
@@ -213,6 +222,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Número de lote */}
         <FormField
           control={form.control}
           name="noLote"
@@ -230,6 +240,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Proveedor */}
         <FormField
           control={form.control}
           name="proveedores"
@@ -247,6 +258,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Existencia física */}
         <FormField
           control={form.control}
           name="existenciaFisica"
@@ -265,6 +277,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Existencia sistema */}
         <FormField
           control={form.control}
           name="existenciaSistema"
@@ -283,6 +296,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Retenidos */}
         <FormField
           control={form.control}
           name="retenidos"
@@ -301,6 +315,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Fecha ingreso */}
         <FormField
           control={form.control}
           name="fechaIngreso"
@@ -319,6 +334,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Fecha vencimiento */}
         <FormField
           control={form.control}
           name="fechaVencimiento"
@@ -337,6 +353,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Unidad de medida */}
         <FormField
           control={form.control}
           name="unidadMedidaId"
@@ -362,6 +379,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Ubicación */}
         <FormField
           control={form.control}
           name="ubicacionId"
@@ -388,6 +406,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* Producto liberado */}
         <FormField
           control={form.control}
           name="productoLiberado"
@@ -408,6 +427,7 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
           )}
         />
 
+        {/* ID Usuario (valor real oculto + texto visible) */}
         <FormField
           control={form.control}
           name="reportadoPorId"
@@ -415,18 +435,28 @@ export function EditarQuimico({ quimico, ubicaciones, onSuccess }: Props) {
             <FormItem>
               <FormLabel className="text-white">ID Usuario</FormLabel>
               <FormControl>
-                <Input
-                  {...field}
-                  readOnly
-                  value={session?.user?.id ? `${session.user.id} - ${session.user.name}` : "No autenticado"}
-                  className="text-black bg-gray-200"
-                />
+                <>
+                  {/* valor que se envía al backend */}
+                  <input type="hidden" {...field} />
+
+                  {/* lo que ve el usuario */}
+                  <Input
+                    readOnly
+                    value={
+                      session?.user?.id
+                        ? `${session.user.id} - ${session.user.name}`
+                        : "No autenticado"
+                    }
+                    className="text-black bg-gray-200"
+                  />
+                </>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Movimiento oculto */}
         <FormField
           control={form.control}
           name="movimiento"

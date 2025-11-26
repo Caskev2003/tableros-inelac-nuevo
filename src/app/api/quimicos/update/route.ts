@@ -12,7 +12,7 @@ interface QuimicoPayload {
   fechaVencimiento: string;
   unidadMedidaId: Unidad_medida | string;
   ubicacionId: number;
-  existenciaFisica: number;   // ← TOTAL física (disponible + retenidos)
+  existenciaFisica: number;   // TOTAL física (disponible + retenidos)
   existenciaSistema: number;
   retenidos: number;
   reportadoPorId: number;
@@ -20,13 +20,24 @@ interface QuimicoPayload {
   diasDeVida?: number;
 }
 
-// Convierte ISO/“YYYY-MM-DD” a Date UTC 12:00
+// Convierte ISO/"YYYY-MM-DD" a Date UTC 12:00
 const parseFechaLocal = (fechaStr: string): Date => {
   if (!fechaStr) throw new Error("Fecha vacía");
+
   let fecha = new Date(fechaStr);
   if (!isNaN(fecha.getTime())) {
-    return new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate(), 12, 0, 0));
+    return new Date(
+      Date.UTC(
+        fecha.getUTCFullYear(),
+        fecha.getUTCMonth(),
+        fecha.getUTCDate(),
+        12,
+        0,
+        0
+      )
+    );
   }
+
   const partes = fechaStr.split("-").map(Number);
   if (partes.length !== 3) throw new Error("Fecha inválida: " + fechaStr);
   const [year, month, day] = partes;
@@ -49,54 +60,93 @@ export async function PUT(request: Request) {
 
     // Validaciones mínimas
     if (!body.codigo || body.codigo < 1)
-      return NextResponse.json({ success: false, error: "Código inválido" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Código inválido" },
+        { status: 400 }
+      );
+
     if (!body.noLote)
-      return NextResponse.json({ success: false, error: "Número de lote requerido" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Número de lote requerido" },
+        { status: 400 }
+      );
 
     const quimicoExistente = await db.quimicos.findFirst({
       where: { codigo: body.codigo, noLote: body.noLote },
     });
+
     if (!quimicoExistente)
-      return NextResponse.json({ success: false, error: "Químico no encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: "Químico no encontrado" },
+        { status: 404 }
+      );
 
     // Fechas
     const fechaIngreso = parseFechaLocal(body.fechaIngreso);
     const fechaVencimiento = parseFechaLocal(body.fechaVencimiento);
     if (fechaVencimiento <= fechaIngreso)
       return NextResponse.json(
-        { success: false, error: "La fecha de vencimiento debe ser posterior a la de ingreso" },
+        {
+          success: false,
+          error: "La fecha de vencimiento debe ser posterior a la de ingreso",
+        },
         { status: 400 }
       );
 
     // Unidad de medida (normaliza string → enum)
     const unidadesValidas = Object.values(Unidad_medida);
-    const unidadNorm = (body.unidadMedidaId ?? "").toString().trim().toUpperCase() as Unidad_medida;
+    const unidadNorm = (body.unidadMedidaId ?? "")
+      .toString()
+      .trim()
+      .toUpperCase() as Unidad_medida;
+
     if (!unidadesValidas.includes(unidadNorm))
       return NextResponse.json(
-        { success: false, error: `Unidad de medida inválida. Válidas: ${unidadesValidas.join(", ")}` },
+        {
+          success: false,
+          error: `Unidad de medida inválida. Válidas: ${unidadesValidas.join(", ")}`,
+        },
         { status: 400 }
       );
 
     // Ubicación
     if (!body.ubicacionId || body.ubicacionId < 1)
-      return NextResponse.json({ success: false, error: "Ubicación inválida" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Ubicación inválida" },
+        { status: 400 }
+      );
 
     // Existencias (valores totales recibidos)
     if (!Number.isFinite(body.existenciaFisica) || body.existenciaFisica < 0)
-      return NextResponse.json({ success: false, error: "Existencia física inválida" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Existencia física inválida" },
+        { status: 400 }
+      );
     if (!Number.isFinite(body.existenciaSistema) || body.existenciaSistema < 0)
-      return NextResponse.json({ success: false, error: "Existencia en sistema inválida" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Existencia en sistema inválida" },
+        { status: 400 }
+      );
 
     // Producto liberado
     const liberadoNorm = String(body.productoLiberado).toUpperCase();
     if (!["SI", "NO"].includes(liberadoNorm))
-      return NextResponse.json({ success: false, error: "Producto liberado debe ser 'SI' o 'NO'" }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Producto liberado debe ser 'SI' o 'NO'",
+        },
+        { status: 400 }
+      );
 
     // Retenidos
     if (!Number.isFinite(body.retenidos) || body.retenidos < 0)
-      return NextResponse.json({ success: false, error: "Retenidos inválidos" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Retenidos inválidos" },
+        { status: 400 }
+      );
 
-    // 🔹 LÓGICA NUEVA: interpretar existenciaFisica como TOTAL y restar retenidos
+    // LÓGICA: existencia física total y retenidos
     const totalFisico = body.existenciaFisica;
     const totalRetenidos = body.retenidos;
 
@@ -110,12 +160,37 @@ export async function PUT(request: Request) {
       );
     }
 
-    // existencia física disponible = total físico - retenidos
     const existenciaFisicaDisponible = totalFisico - totalRetenidos;
 
     // Cálculos
     const diasDeVida = body.diasDeVida ?? calcDiasDeVida(fechaVencimiento);
-    const diferencias = Math.abs(existenciaFisicaDisponible - body.existenciaSistema);
+    const diferencias = Math.abs(
+      existenciaFisicaDisponible - body.existenciaSistema
+    );
+
+    // Verificar si el usuario para reportadoPorId existe (para evitar P2025)
+    let connectUsuario:
+      | {
+          id: number;
+        }
+      | undefined = undefined;
+
+    if (
+      Number.isInteger(body.reportadoPorId) &&
+      body.reportadoPorId > 0
+    ) {
+      const usuario = await db.usuario.findUnique({
+        where: { id: body.reportadoPorId },
+      });
+
+      if (usuario) {
+        connectUsuario = { id: body.reportadoPorId };
+      } else {
+        console.warn(
+          `PUT /api/quimicos/update: usuario con id ${body.reportadoPorId} no existe. Se mantiene el usuario previo.`
+        );
+      }
+    }
 
     // Actualización + historial en transacción
     const quimicoActualizado = await db.$transaction(async (tx) => {
@@ -127,7 +202,6 @@ export async function PUT(request: Request) {
           fechaIngreso,
           fechaVencimiento,
           diasDeVida,
-          // 🔹 Guardamos la existencia física disponible, no el total
           existenciaFisica: existenciaFisicaDisponible,
           existenciaSistema: body.existenciaSistema,
           diferencias,
@@ -136,6 +210,9 @@ export async function PUT(request: Request) {
           unidadMedidaId: unidadNorm,
           ubicacion: { connect: { id: body.ubicacionId } },
           movimiento: Movimiento.EDITADO,
+          ...(connectUsuario && {
+            usuarioReportado: { connect: connectUsuario },
+          }),
         },
         include: {
           ubicacion: true,
@@ -143,19 +220,16 @@ export async function PUT(request: Request) {
         },
       });
 
-      // Historial (usa campos correctos del schema)
       await tx.historial_movimientos.create({
         data: {
           codigo: q.codigo,
           descripcion: `Edición: ${q.descripcion}`,
           noParte: q.noLote,
           movimiento: Movimiento.EDITADO,
-          // 🔹 Registramos la existencia física disponible después de la edición
           cantidad: existenciaFisicaDisponible,
           existenciaFisicaDespues: existenciaFisicaDisponible,
-          reportadoPorId: q.reportadoPorId,
+          reportadoPorId: q.reportadoPorId, // el que tenga el registro después del update
           fechaMovimiento: new Date(),
-          // marca de almacén para químicos
           almacenEnum: "QUIMICOS",
           almacenText: "Almacén de Químicos",
         },
@@ -171,6 +245,9 @@ export async function PUT(request: Request) {
     });
   } catch (error: any) {
     console.error("Error en PUT /api/quimicos/update:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Error interno" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error?.message || "Error interno" },
+      { status: 500 }
+    );
   }
 }
