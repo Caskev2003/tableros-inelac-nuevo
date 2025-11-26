@@ -48,11 +48,11 @@ export const quimicoSchema = z.object({
     
   existenciaFisica: z.coerce.number()
     .min(0, "La existencia debe ser 0 o más")
-    .max(9999, "La existencia no puede ser mayor a 9999"),
+    .max(199999, "La existencia no puede ser mayor a 199999"),
     
   existenciaSistema: z.coerce.number()
     .min(0, "La existencia no puede ser negativa")
-    .max(9999, "La existencia no puede ser mayor a 9999"),
+    .max(199999, "La existencia no puede ser mayor a 199999"),
     
   movimiento: z.nativeEnum(Movimiento, {
     errorMap: () => ({ message: "Tipo de movimiento inválido" })
@@ -65,7 +65,7 @@ export const quimicoSchema = z.object({
   retenidos: z.coerce.number()
     .int("Debe ser un número entero")
     .min(0, "No puede ser negativo")
-    .max(9999, "No puede ser mayor a 9999")
+    .max(199999, "No puede ser mayor a 199999")
     .default(0),
     
   diasDeVida: z.coerce.number()
