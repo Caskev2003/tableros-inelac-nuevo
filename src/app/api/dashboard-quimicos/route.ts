@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 
     console.log('Where clause principal:', whereClause);
 
-    // 1. KPI - Datos generales (AHORA CON FILTRO DE ESTADO)
+    // 1. KPI - Datos generales
     const kpiData: any[] = await db.$queryRawUnsafe(`
       SELECT
         SUM(q.existenciaFisica) AS totalExistencias,
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       ${whereClause};
     `);
 
-    // 2. Gráfico de barras - Top 10 productos con más existencias (AHORA CON FILTRO DE ESTADO)
+    // 2. Gráfico de barras - Top 10 productos con más existencias
     const barChartData: any[] = await db.$queryRawUnsafe(`
       SELECT
         q.codigo,
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
 
     console.log('Top 10 productos:', barChartData);
 
-    // 3. Gráfico de líneas - Evolución histórica (AHORA CON FILTRO DE ESTADO)
+    // 3. Gráfico de líneas - Evolución histórica
     const lineChartData: any[] = await db.$queryRawUnsafe(`
       WITH datos_mensuales AS (
         SELECT
@@ -103,7 +103,7 @@ export async function GET(req: Request) {
 
     console.log('Datos de línea crudos:', JSON.stringify(lineChartData, null, 2));
 
-    // 4. Gráfico de pie - Distribución por movimiento (AHORA CON FILTRO DE ESTADO)
+    // 4. Gráfico de pie - Distribución por movimiento
     const pieChartData: any[] = await db.$queryRawUnsafe(`
       SELECT
         q.movimiento,
@@ -114,7 +114,7 @@ export async function GET(req: Request) {
       ORDER BY totalExistencias DESC;
     `);
 
-    // 5. Productos críticos con estado (vigente, por-vencer, caducado) - FILTRO ORIGINAL
+    // 5. Productos críticos con estado (vigente, por-vencer, caducado)
     let condicionesCriticos = "WHERE q.existenciaFisica < 10";
     if (estado) {
       if (estado === "vigente") {
@@ -135,7 +135,7 @@ export async function GET(req: Request) {
         q.fechaVencimiento,
         CASE 
           WHEN q.fechaVencimiento IS NULL OR q.fechaVencimiento > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Vigente'
-          WHEN q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 Day) THEN 'Por Vencer'
+          WHEN q.fechaVencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por Vencer'
           WHEN q.fechaVencimiento < CURDATE() THEN 'Caducado'
           ELSE 'Vigente'
         END AS estado
@@ -145,7 +145,7 @@ export async function GET(req: Request) {
       LIMIT 20;
     `);
 
-    // 6. Productos próximos a vencer (AHORA CON FILTRO DE ESTADO)
+    // 6. Productos próximos a vencer
     let condicionesProximosVencer = "WHERE q.fechaVencimiento BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 MONTH)";
     if (estado) {
       if (estado === "vigente") {
@@ -175,6 +175,24 @@ export async function GET(req: Request) {
       ${anio || mes ? 'AND ' + condiciones.join(' AND ') : ''}
       ORDER BY q.fechaVencimiento ASC
       LIMIT 10;
+    `);
+
+    // 7. Productos con retenidos > 0 (para la nueva tabla)
+    const whereRetenidos = whereClause
+      ? `${whereClause} AND q.retenidos > 0`
+      : 'WHERE q.retenidos > 0';
+
+    const retenidosData: any[] = await db.$queryRawUnsafe(`
+      SELECT
+        q.codigo,
+        q.descripcion,
+        q.existenciaFisica,
+        q.noLote,
+        q.retenidos
+      FROM quimicos q
+      ${whereRetenidos}
+      ORDER BY q.retenidos DESC
+      LIMIT 20;
     `);
 
     // Formateamos los datos para que coincidan con lo que espera el frontend
@@ -227,7 +245,6 @@ export async function GET(req: Request) {
               tension: 0.1
             }
           ],
-          // Metadatos adicionales para el tooltip
           metadata: lineChartData.map(item => ({
             periodo: item.periodo,
             existencia_mes: Number(item.existencia_mes) || 0,
@@ -274,6 +291,13 @@ export async function GET(req: Request) {
           diasRestantes: item.fechaVencimiento 
             ? Math.ceil((new Date(item.fechaVencimiento).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
             : null
+        })),
+        retenidos: retenidosData.map(item => ({
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          existenciaFisica: Number(item.existenciaFisica) || 0,
+          noLote: item.noLote,
+          retenidos: Number(item.retenidos) || 0
         }))
       }
     };
