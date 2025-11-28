@@ -76,11 +76,13 @@ export async function GET(req: Request) {
 
     // 2. Ubicaciones distintas
     const ubicacionesRows: any[] = await db.$queryRawUnsafe(`
-      SELECT DISTINCT CONCAT(u.rack, u.fila) AS ubicacion
+      SELECT CONCAT(u.rack, u.fila) AS ubicacion
       FROM refacciones_l3 r
       INNER JOIN ubicacion u ON r.ubicacionId = u.id
-      WHERE u.fila IS NOT NULL AND u.fila != ''
-      ORDER BY ubicacion;
+      WHERE u.fila IS NOT NULL
+        AND u.fila <> ''
+      GROUP BY u.rack, u.fila
+      ORDER BY u.rack ASC, u.fila ASC ;
     `);
 
     // 3. Años y meses disponibles (para filtros dinámicos)
