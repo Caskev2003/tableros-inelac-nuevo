@@ -59,7 +59,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="p-6 bg-white/80 rounded-lg w-full max-w-md mx-auto mt-20">
-      <h2 className="text-2xl font-bold mb-6 text-black text-center">Recuperar contraseña</h2>
+      <h2 className="text-2xl font-bold mb-6 text-black text-center">Recupera tu contraseña</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           type="email"
