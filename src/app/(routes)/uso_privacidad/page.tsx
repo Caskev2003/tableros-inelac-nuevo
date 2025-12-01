@@ -4,13 +4,32 @@ import ContratoInformatico from "./components/ContratoInformatico/ContratoInform
 import ManualInstalacion from "./components/ManualInstalacion/ManualInstalacion";
 import ManualUsuario from "./components/ManualUsuario/ManualUsuario";
 import { Navbar } from "./components/Navbar";
+import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+/* ------------------------- Botón Regresar (inline) ------------------------ */
+function ButtonRegresar({ href }: { href?: string }) {
+  const router = useRouter()
+  return (
+    <button
+      onClick={() => (href ? router.push(href) : router.back())}
+      aria-label="Regresar"
+      className="group inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-white backdrop-blur transition
+                 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
+    >
+      <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-0.5" />
+      <span className="hidden sm:inline">Regresar</span>
+    </button>
+  )
+}
 
 export default function pag() {
   return (
     <div className="relative bg-[#2b2b2b] min-h-screen text-white">
       <Navbar />
-
       <div className="max-w-5xl mx-auto px-6 py-10 space-y-10 mt-20">
+        {/* Si quieres forzar una ruta en lugar de back(), pásala en href */}
+            <ButtonRegresar />
         <h1 className="text-3xl md:text-4xl font-bold text-center mb-4">
           ACUERDO DE PRIVACIDAD
         </h1>
