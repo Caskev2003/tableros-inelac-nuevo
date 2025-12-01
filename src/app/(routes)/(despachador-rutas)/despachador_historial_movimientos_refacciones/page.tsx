@@ -22,10 +22,6 @@ export default async function page() {
         <h1 className="text-white text-3xl font-bold text-center">HISTORIAL DE MOVIMIENTOS</h1>
           <HistorialMovimientosClient/>
       </div>
-      {/* Botón de regresar */}
-      <div className="flex justify-center mt-10">
-        <ButtonRegresar/>
-      </div>
     </div>
   );
 }

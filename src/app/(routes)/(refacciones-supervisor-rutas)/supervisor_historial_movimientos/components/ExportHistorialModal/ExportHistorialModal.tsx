@@ -213,10 +213,10 @@ export default function ExportHistorialModal({ open, onClose }: ExportHistorialM
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
-      <DialogContent className="sm:max-w-lg bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+      <DialogContent className="sm:max-w-lg bg-[#2b2b2b] text-white dark:bg-zinc-900 dark:text-zinc-100">
         <DialogHeader>
           <DialogTitle className="text-xl">Exportar historial por rango</DialogTitle>
-          <DialogDescription className="text-sm text-zinc-600 dark:text-zinc-300">
+          <DialogDescription className="text-sm text-gray-400 dark:text-zinc-300">
             Elige la <b>fecha inicio</b> y <b>fecha fin</b>. Primero carga los datos y después exporta a Excel.
           </DialogDescription>
         </DialogHeader>
@@ -227,7 +227,7 @@ export default function ExportHistorialModal({ open, onClose }: ExportHistorialM
               <label className="text-sm font-medium">Fecha inicio</label>
               <input
                 type="date"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700 text-black"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
                 max={end || undefined}
@@ -237,7 +237,7 @@ export default function ExportHistorialModal({ open, onClose }: ExportHistorialM
               <label className="text-sm font-medium">Fecha fin</label>
               <input
                 type="date"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700 text-black"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
                 min={start || undefined}
@@ -245,7 +245,7 @@ export default function ExportHistorialModal({ open, onClose }: ExportHistorialM
             </div>
           </div>
 
-          <div className="text-xs text-zinc-600 dark:text-zinc-400">
+          <div className="text-xs text-gray-400 dark:text-zinc-400">
             Nombre de archivo: <b>{filenameBase}.xlsx</b>
           </div>
 
@@ -268,7 +268,7 @@ export default function ExportHistorialModal({ open, onClose }: ExportHistorialM
             </Button>
           </div>
 
-          <div className="text-xs text-zinc-700 dark:text-zinc-300">
+          <div className="text-xs text-gray-400 dark:text-zinc-300">
             {items.length > 0
               ? `Registros listos para exportar: ${items.length}`
               : "Aún no hay datos cargados para exportar."}
