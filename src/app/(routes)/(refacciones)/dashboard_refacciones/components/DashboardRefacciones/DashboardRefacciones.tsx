@@ -15,6 +15,7 @@ import {
   LineElement,
   ArcElement
 } from "chart.js";
+import { Navbar } from "@/components/shared/Navbar";
 
 ChartJS.register(
   CategoryScale,
@@ -358,6 +359,7 @@ const DashboardRefacciones = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
+      <Navbar/>
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-lg shadow-lg p-6 mb-6 text-white">
         <div className="flex flex-col md:flex-row justify-between items-center">
