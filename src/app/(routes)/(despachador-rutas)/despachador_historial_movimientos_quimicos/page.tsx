@@ -1,7 +1,6 @@
 import { auth } from "../../../../../auth";
 import { redirect } from "next/navigation";
 import { Navbar } from "./components/Navbar";
-import { ButtonRegresar } from "./components/ButtonRegresar";
 import { HistorialMovimientosClient } from "./components/HistorialMovimientosClient";
 
 export default async function page() {
@@ -21,10 +20,6 @@ export default async function page() {
       <div className="mt-16 px-4">
         <h1 className="text-white text-3xl font-bold text-center">HISTORIAL DE MOVIMIENTOS</h1>
           <HistorialMovimientosClient/>
-      </div>
-      {/* Botón de regresar */}
-      <div className="flex justify-center mt-10">
-        <ButtonRegresar/>
       </div>
     </div>
   );
